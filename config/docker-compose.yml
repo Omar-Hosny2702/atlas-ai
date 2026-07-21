@@ -1,0 +1,63 @@
+# Atlas AI — optional Docker Compose setup.
+#
+# This is a convenience path, not a requirement — `utilities/setup.sh` plus
+# `npm run dev` in each folder works fine without Docker. Use this if you'd
+# rather run everything (including Ollama) in containers.
+#
+# Usage (from the project root):
+#   docker compose -f config/docker-compose.yml up
+#
+# First run will take a while (npm install + pulling the Ollama image).
+# Pull a model once Ollama is up:
+#   docker compose -f config/docker-compose.yml exec ollama ollama pull llama3.1:8b
+
+name: atlas-ai
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - '11434:11434'
+    volumes:
+      - ollama-data:/root/.ollama
+    restart: unless-stopped
+
+  backend:
+    image: node:20-bookworm
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"
+    volumes:
+      - ../backend:/app
+      - ../ai:/ai
+      - backend-node-modules:/app/node_modules
+    ports:
+      - '8787:8787'
+    environment:
+      PORT: 8787
+      CORS_ORIGIN: http://localhost:5173
+      OLLAMA_HOST: http://ollama:11434
+      DEFAULT_MODEL: llama3.1:8b
+      DATABASE_PATH: /app/data/atlas.db
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+  frontend:
+    image: node:20-bookworm
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    volumes:
+      - ../frontend:/app
+      - frontend-node-modules:/app/node_modules
+    ports:
+      - '5173:5173'
+    environment:
+      VITE_API_BASE_URL: http://localhost:8787/api
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  ollama-data:
+  backend-node-modules:
+  frontend-node-modules:
