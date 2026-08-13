@@ -55,6 +55,10 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 export { app };
+// Provide a default export for Vercel's Node runtime which expects a
+// default export that is either a function or a server. An Express app
+// is a callable handler (req, res) and satisfies that requirement.
+export default app;
 
 if (!process.env.VERCEL) {
   const server = app.listen(config.port, () => {
