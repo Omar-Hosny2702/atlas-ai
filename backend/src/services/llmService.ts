@@ -5,7 +5,7 @@ import { GoogleGenAI } from '@google/genai';
 import { logger } from '../utils/logger.js';
 import { AppError } from '../types/index.js';
 import type { Message } from '../types/index.js';
-import { getModelById, clamp, PARAM_BOUNDS } from '../../../ai/modelConfig.js';
+import { getModelById, clamp, PARAM_BOUNDS } from '../ai/modelConfig.js';
 
 // Load GEMINI_API_KEY from backend/.env regardless of the working directory
 // the process was started from (this file lives at backend/src/services/).

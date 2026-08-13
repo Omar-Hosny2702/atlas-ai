@@ -11,8 +11,8 @@ import type {
   MessageRole,
   UpdateConversationBody,
 } from '../types/index.js';
-import { getModelById } from '../../../ai/modelConfig.js';
-import { DEFAULT_SYSTEM_PROMPT } from '../../../ai/systemPrompts.js';
+import { getModelById } from '../ai/modelConfig.js';
+import { DEFAULT_SYSTEM_PROMPT } from '../ai/systemPrompts.js';
 
 // --- row <-> domain mapping -------------------------------------------------
 

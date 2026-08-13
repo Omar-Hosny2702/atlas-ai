@@ -6,7 +6,7 @@
 import 'dotenv/config';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DEFAULT_MODEL_ID } from '../../../ai/modelConfig.js';
+import { DEFAULT_MODEL_ID } from '../ai/modelConfig.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const backendRoot = path.resolve(__dirname, '..', '..');
@@ -25,7 +25,7 @@ export const config = {
     .map((s) => s.trim())
     .filter(Boolean),
   ollamaHost: process.env.OLLAMA_HOST ?? 'http://127.0.0.1:11434',
-  defaultModel: process.env.DEFAULT_MODEL ?? DEFAULT_MODEL_ID,
+  defaultModel: process.env.DEFAULT_MODEL ?? 'gemini-2.5-flash',
   databasePath: path.isAbsolute(process.env.DATABASE_PATH ?? '')
     ? (process.env.DATABASE_PATH as string)
     : path.resolve(backendRoot, process.env.DATABASE_PATH ?? './data/atlas.db'),

@@ -3,8 +3,14 @@ import { AppError } from '../types/index.js';
 import { createConversation, addMessage } from './conversationService.js';
 import type { Conversation } from '../types/index.js';
 import { config } from '../config/config.js';
-import { getModelById } from '../../../ai/modelConfig.js';
+const AVAILABLE_MODEL_IDS = new Set([
+  'gemini-2.5-flash',
+  'gemini-2.5-pro',
+]);
 
+function getModelById(id: string): string | undefined {
+  return AVAILABLE_MODEL_IDS.has(id) ? id : undefined;
+}
 const importedMessageSchema = z.object({
   role: z.enum(['system', 'user', 'assistant']),
   content: z.string().min(1),
