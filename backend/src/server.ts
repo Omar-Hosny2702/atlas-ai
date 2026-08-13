@@ -51,6 +51,11 @@ app.use('/api/conversations', conversationRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/settings', settingsRoutes);
 
+// Lightweight root status endpoint to satisfy platform health checks
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', uptime: process.uptime() });
+});
+
 app.use(notFoundHandler);
 app.use(errorHandler);
 
