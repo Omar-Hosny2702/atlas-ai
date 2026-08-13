@@ -87,7 +87,7 @@ async function checkGeminiHealth(): Promise<{ reachable: boolean; models: string
     return { reachable: false, models: [] };
   }
   try {
-    const pager = await genAI.models.list({ pageSize: 20 });
+    const pager = await genAI.models.list();
     const models: string[] = [];
     for await (const model of pager) {
       if (model.name) models.push(model.name.replace(/^models\//, ''));

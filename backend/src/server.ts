@@ -54,20 +54,24 @@ app.use('/api/settings', settingsRoutes);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-const server = app.listen(config.port, () => {
-  logger.info(`Atlas AI backend listening on http://localhost:${config.port}`);
-  logger.info(`Expecting Ollama at ${config.ollamaHost}`);
-});
+export { app };
 
-function shutdown(signal: string): void {
-  logger.info(`Received ${signal}, shutting down.`);
-  server.close(() => process.exit(0));
-  // Force-exit if connections (e.g. an in-flight stream) don't close promptly.
-  setTimeout(() => process.exit(1), 5000).unref();
+if (!process.env.VERCEL) {
+  const server = app.listen(config.port, () => {
+    logger.info(`Atlas AI backend listening on http://localhost:${config.port}`);
+    logger.info(`Expecting Ollama at ${config.ollamaHost}`);
+  });
+
+  function shutdown(signal: string): void {
+    logger.info(`Received ${signal}, shutting down.`);
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(1), 5000).unref();
+  }
+
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
-process.on('SIGINT', () => shutdown('SIGINT'));
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('unhandledRejection', (reason) => {
+  process.on('unhandledRejection', (reason) => {
   logger.error('Unhandled promise rejection', reason);
 });
