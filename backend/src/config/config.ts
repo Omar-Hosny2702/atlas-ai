@@ -26,9 +26,31 @@ export const config = {
     .filter(Boolean),
   ollamaHost: process.env.OLLAMA_HOST ?? 'http://127.0.0.1:11434',
   defaultModel: process.env.DEFAULT_MODEL ?? 'gemini-2.5-flash',
-  databasePath: path.isAbsolute(process.env.DATABASE_PATH ?? '')
-    ? (process.env.DATABASE_PATH as string)
-    : path.resolve(backendRoot, process.env.DATABASE_PATH ?? './data/atlas.db'),
+  // Determine database path with the following precedence:
+  // 1. Explicit absolute `DATABASE_PATH` env var
+  // 2. If running on Vercel (serverless, read-only project fs), use a writable tmp path
+  // 3. Otherwise default to a local file under the backend `data` folder
+  databasePath: (() => {
+    const explicit = process.env.DATABASE_PATH ?? '';
+    if (path.isAbsolute(explicit) && explicit) return explicit;
+
+    // Vercel sets `VERCEL`=1 and `VERCEL_ENV` — prefer that detection when present.
+    const onVercel = !!(process.env.VERCEL || process.env.VERCEL_ENV);
+    if (onVercel) {
+      const tmpDir = process.env.TMPDIR || '/tmp';
+      // If no explicit path provided, use a sane default inside tmp.
+      if (!explicit) return path.resolve(tmpDir, 'atlas.db');
+
+      // If an explicit path was provided but is relative, place it under tmp
+      if (!path.isAbsolute(explicit)) {
+        return path.resolve(tmpDir, path.basename(explicit));
+      }
+
+      // If explicit is absolute, it was already handled above.
+    }
+
+    return path.resolve(backendRoot, process.env.DATABASE_PATH ?? './data/atlas.db');
+  })(),
   rateLimitPerMinute: readInt('RATE_LIMIT_PER_MINUTE', 30),
   logLevel: (process.env.LOG_LEVEL ?? 'info') as 'error' | 'warn' | 'info' | 'debug',
   isProduction: process.env.NODE_ENV === 'production',
