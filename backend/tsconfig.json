@@ -5,8 +5,8 @@
    "moduleResolution": "Bundler",
    "lib": ["ES2022"],
    "outDir": "dist",
-   "rootDir": "..",
-   "strict": true,
+   "rootDir": ".",
+  "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
@@ -17,6 +17,6 @@
     "noUnusedParameters": false,
     "allowJs": false
   },
-  "include": ["src/**/*.ts", "../ai/**/*.ts"],
+  "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }
