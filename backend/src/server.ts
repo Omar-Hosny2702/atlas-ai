@@ -17,6 +17,13 @@ import healthRoutes from './routes/healthRoutes.js';
 getDatabase();
 
 const app = express();
+const corsOptions = {
+  origin: config.corsOrigins,
+  credentials: true,
+  methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 204,
+};
 
 app.use(
   helmet({
@@ -25,12 +32,8 @@ app.use(
     contentSecurityPolicy: false,
   })
 );
-app.use(
-  cors({
-    origin: config.corsOrigins,
-    credentials: true,
-  })
-);
+app.use(cors(corsOptions));
+app.options('/api/:path*', cors(corsOptions));
 app.use(
   compression({
     // The compression middleware buffers writes until its internal zlib
