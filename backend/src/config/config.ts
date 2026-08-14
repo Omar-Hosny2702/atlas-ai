@@ -22,12 +22,18 @@ const defaultCorsOrigin = process.env.VERCEL
   ? 'https://atlas-ai-beta-beryl.vercel.app'
   : 'http://localhost:5173';
 
-export const config = {
-  port: readInt('PORT', 8787),
-  corsOrigins: (process.env.CORS_ORIGIN ?? defaultCorsOrigin)
+function normalizeCorsOrigins(value: string | undefined, fallback: string): string[] {
+  const raw = (value ?? fallback).replace(/\\/g, '');
+
+  return raw
     .split(',')
     .map((s) => s.trim())
-    .filter(Boolean),
+    .filter(Boolean);
+}
+
+export const config = {
+  port: readInt('PORT', 8787),
+  corsOrigins: normalizeCorsOrigins(process.env.CORS_ORIGIN, defaultCorsOrigin),
   ollamaHost: process.env.OLLAMA_HOST ?? 'http://127.0.0.1:11434',
   defaultModel: process.env.DEFAULT_MODEL ?? 'gemini-2.5-flash',
   // Determine database path with the following precedence:

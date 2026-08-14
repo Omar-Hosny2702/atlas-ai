@@ -17,11 +17,11 @@ import healthRoutes from './routes/healthRoutes.js';
 getDatabase();
 
 const app = express();
-const allowedOrigin = config.corsOrigins[0] ?? 'http://localhost:5173';
+const allowedOrigins = new Set(config.corsOrigins);
 const corsOptions = {
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-    // Permit curl/server-to-server calls with no Origin and enforce the exact frontend origin.
-    if (!origin || origin === allowedOrigin) {
+    // Permit curl/server-to-server calls without an Origin header and allow only the exact configured frontend origins.
+    if (!origin || allowedOrigins.has(origin)) {
       callback(null, true);
       return;
     }
