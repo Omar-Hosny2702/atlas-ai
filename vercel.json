@@ -8,7 +8,7 @@
     }
   ],
   "routes": [
-    { "src": "^/$", "dest": "/frontend/dist/index.html" },
-    { "src": "^/(.*)$", "dest": "/frontend/dist/$1" }
+    { "src": "/assets/(.*)", "dest": "/assets/$1" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
