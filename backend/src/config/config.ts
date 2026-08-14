@@ -18,9 +18,13 @@ function readInt(name: string, fallback: number): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+const defaultCorsOrigin = process.env.VERCEL
+  ? 'https://atlas-ai-beta-beryl.vercel.app'
+  : 'http://localhost:5173';
+
 export const config = {
   port: readInt('PORT', 8787),
-  corsOrigins: (process.env.CORS_ORIGIN ?? 'http://localhost:5173')
+  corsOrigins: (process.env.CORS_ORIGIN ?? defaultCorsOrigin)
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean),
