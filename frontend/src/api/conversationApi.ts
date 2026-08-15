@@ -1,4 +1,5 @@
 import { apiFetch, BASE_URL } from './client';
+import { getAccessToken } from '@/auth/authClient';
 import type { Conversation, ConversationSummary, ConversationWithMessages } from '@/types';
 
 export interface CreateConversationInput {
@@ -44,8 +45,25 @@ export function deleteConversation(id: string): Promise<void> {
   return apiFetch<void>(`/conversations/${id}`, { method: 'DELETE' });
 }
 
-export function exportConversationUrl(id: string, format: 'md' | 'txt' | 'json'): string {
-  return `${BASE_URL}/conversations/${id}/export?format=${format}`;
+export async function exportConversation(
+  id: string,
+  format: 'md' | 'txt' | 'json'
+): Promise<string> {
+  const token = getAccessToken();
+  const response = await fetch(`${BASE_URL}/conversations/${id}/export?format=${format}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+
+  if (response.status === 401) {
+    throw new Error('Authentication required. Please log in again.');
+  }
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || 'Could not export that conversation.');
+  }
+
+  return response.text();
 }
 
 export async function importConversations(payload: unknown): Promise<Conversation[]> {

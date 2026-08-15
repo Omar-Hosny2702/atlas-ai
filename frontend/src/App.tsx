@@ -6,8 +6,28 @@ import { ToastProvider } from '@/context/ToastContext';
 import { SettingsProvider, useSettings } from '@/context/SettingsContext';
 import { ConversationProvider } from '@/context/ConversationContext';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { AuthProvider, useAuth } from '@/auth/AuthContext';
+import { LoginScreen } from '@/components/auth/LoginScreen';
 
-function AppGate() {
+function AuthGate() {
+  const { isLoading, isAuthenticated, login } = useAuth();
+
+  if (isLoading) {
+    return <LoadingScreen message="Connecting to Atlas AI…" />;
+  }
+
+  if (!isAuthenticated) {
+    return <LoginScreen onLogin={login} />;
+  }
+
+  return (
+    <SettingsProvider>
+      <AuthenticatedApp />
+    </SettingsProvider>
+  );
+}
+
+function AuthenticatedApp() {
   const { loading } = useSettings();
 
   if (loading) {
@@ -26,9 +46,9 @@ export default function App() {
     <ErrorBoundary>
       <ThemeProvider>
         <ToastProvider>
-          <SettingsProvider>
-            <AppGate />
-          </SettingsProvider>
+          <AuthProvider>
+            <AuthGate />
+          </AuthProvider>
           <ToastContainer />
         </ToastProvider>
       </ThemeProvider>

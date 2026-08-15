@@ -1,4 +1,5 @@
-import { BASE_URL } from './client';
+import { BASE_URL, apiFetch } from './client';
+import { getAccessToken } from '@/auth/authClient';
 import type { Message, StreamEvent } from '@/types';
 
 export interface SendMessageInput {
@@ -60,15 +61,24 @@ async function streamRequest(
 ): Promise<void> {
   let response: Response;
   try {
+    const token = getAccessToken();
     response = await fetch(`${BASE_URL}${path}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: body === undefined ? undefined : JSON.stringify(body),
       signal,
     });
   } catch {
     if (signal.aborted) return; // user pressed Stop before the request even landed
     handlers.onError('Could not reach the Atlas AI backend. Make sure the server is running.');
+    return;
+  }
+
+  if (response.status === 401) {
+    handlers.onError('Authentication required. Please log in again.');
     return;
   }
 
@@ -112,7 +122,11 @@ export function regenerateMessage(
 
 export async function stopGeneration(conversationId: string): Promise<void> {
   try {
-    await fetch(`${BASE_URL}/chat/${conversationId}/stop`, { method: 'POST' });
+    const token = getAccessToken();
+    await fetch(`${BASE_URL}/chat/${conversationId}/stop`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
   } catch {
     // Best-effort — the client-side AbortController is what actually stops
     // the UI from waiting; this just asks the server to stop generating too.

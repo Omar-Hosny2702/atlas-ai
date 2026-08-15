@@ -17,7 +17,7 @@ import healthRoutes from './routes/healthRoutes.js';
 getDatabase();
 
 const app = express();
-const allowedOrigins = new Set(config.corsOrigins);
+const allowedOrigins = new Set([...config.corsOrigins, 'http://localhost:5173']);
 const corsOptions = {
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     // Permit curl/server-to-server calls without an Origin header and allow only the exact configured frontend origins.
@@ -77,7 +77,7 @@ export { app };
 // is a callable handler (req, res) and satisfies that requirement.
 export default app;
 
-if (!process.env.VERCEL && process.env.NODE_ENV !== 'test') {
+if (process.env.VERCEL !== '1' && process.env.NODE_ENV !== 'test') {
   const server = app.listen(config.port, () => {
     logger.info(`Atlas AI backend listening on http://localhost:${config.port}`);
     logger.info(`Expecting Ollama at ${config.ollamaHost}`);

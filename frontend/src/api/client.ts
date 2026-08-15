@@ -1,3 +1,5 @@
+import { clearAuthSession, getAccessToken } from '@/auth/authClient';
+
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 export class ApiError extends Error {
@@ -19,18 +21,38 @@ async function parseErrorMessage(res: Response): Promise<string> {
   return `Request failed with status ${res.status}.`;
 }
 
+function buildHeaders(init?: RequestInit): Headers {
+  const headers = new Headers(init?.headers ?? {});
+  const token = getAccessToken();
+
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  if (!headers.has('Content-Type') && !(init?.body instanceof FormData)) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  return headers;
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
     res = await fetch(`${BASE_URL}${path}`, {
-      headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
       ...init,
+      headers: buildHeaders(init),
     });
   } catch {
     throw new ApiError(
       'Could not reach the Atlas AI backend. Make sure the server is running.',
       0
     );
+  }
+
+  if (res.status === 401) {
+    clearAuthSession();
+    throw new ApiError('Authentication required. Please log in again.', 401);
   }
 
   if (!res.ok) {

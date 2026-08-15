@@ -1,9 +1,9 @@
 import { useRef, useState, type ChangeEvent } from 'react';
 import { Download, Upload } from 'lucide-react';
 import { Button } from '@/components/common/Button';
-import { downloadFromUrl } from '@/utils/downloadFile';
+import { downloadTextFile } from '@/utils/downloadFile';
 import { readFileAsText } from '@/utils/readFile';
-import { exportConversationUrl, importConversations } from '@/api/conversationApi';
+import { exportConversation, importConversations } from '@/api/conversationApi';
 import { useConversations } from '@/context/ConversationContext';
 import { useToast } from '@/context/ToastContext';
 
@@ -13,9 +13,15 @@ export function DataSettings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
 
-  const handleExport = (format: 'md' | 'txt' | 'json') => {
+  const handleExport = async (format: 'md' | 'txt' | 'json') => {
     if (!activeId) return;
-    downloadFromUrl(exportConversationUrl(activeId, format));
+    try {
+      const content = await exportConversation(activeId, format);
+      const filename = `conversation-${activeId}.${format === 'json' ? 'json' : format === 'txt' ? 'txt' : 'md'}`;
+      downloadTextFile(filename, content, format === 'json' ? 'application/json' : 'text/plain');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not export that chat.', 'error');
+    }
   };
 
   const handleImportClick = () => fileInputRef.current?.click();

@@ -32,7 +32,7 @@ export function MainLayout() {
   });
 
   return (
-    <div className="flex h-[100dvh] w-full overflow-hidden bg-paper dark:bg-ink text-ink dark:text-paper">
+    <div className="relative flex h-[100dvh] w-full overflow-hidden bg-paper dark:bg-ink text-ink dark:text-paper">
       <Sidebar
         isMobileOpen={isMobileSidebarOpen}
         onCloseMobile={() => setMobileSidebarOpen(false)}
@@ -46,6 +46,10 @@ export function MainLayout() {
       </main>
 
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
+      <div className="pointer-events-none absolute bottom-2 right-4 z-10 text-[10px] text-muted-light dark:text-muted-dark">
+        Made by Omar Hosny · <a href="https://www.omarhosny.work.gd" target="_blank" rel="noopener noreferrer" className="pointer-events-auto hover:underline">www.omarhosny.work.gd</a>
+      </div>
     </div>
   );
 }
