@@ -10,9 +10,12 @@ import {
   handleUpdateConversation,
   updateConversationSchema,
 } from '../controllers/conversationController.js';
+import { requireAuth } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validateRequest.js';
 
 const router = Router();
+
+router.use(requireAuth);
 
 router.get('/', handleListConversations);
 router.post('/', validateBody(createConversationSchema), handleCreateConversation);

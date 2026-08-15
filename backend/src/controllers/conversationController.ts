@@ -32,32 +32,38 @@ export const updateConversationSchema = z.object({
 });
 
 export function handleCreateConversation(req: Request, res: Response): void {
-  const conversation = createConversation(req.body);
+  const userId = req.auth?.userId ?? 'local-dev-user';
+  const conversation = createConversation(userId, req.body);
   res.status(201).json(conversation);
 }
 
 export function handleListConversations(req: Request, res: Response): void {
+  const userId = req.auth?.userId ?? 'local-dev-user';
   const q = typeof req.query.q === 'string' ? req.query.q : '';
-  const conversations = q ? searchConversations(q) : listConversations();
+  const conversations = q ? searchConversations(userId, q) : listConversations(userId);
   res.json(conversations);
 }
 
 export function handleGetConversation(req: Request, res: Response): void {
-  res.json(getConversation(req.params.id));
+  const userId = req.auth?.userId ?? 'local-dev-user';
+  res.json(getConversation(userId, req.params.id));
 }
 
 export function handleUpdateConversation(req: Request, res: Response): void {
-  res.json(updateConversation(req.params.id, req.body));
+  const userId = req.auth?.userId ?? 'local-dev-user';
+  res.json(updateConversation(userId, req.params.id, req.body));
 }
 
 export function handleDeleteConversation(req: Request, res: Response): void {
-  deleteConversation(req.params.id);
+  const userId = req.auth?.userId ?? 'local-dev-user';
+  deleteConversation(userId, req.params.id);
   res.status(204).send();
 }
 
 export function handleExportConversation(req: Request, res: Response): void {
+  const userId = req.auth?.userId ?? 'local-dev-user';
   const format = (req.query.format as string) ?? 'md';
-  const conversation = getConversation(req.params.id);
+  const conversation = getConversation(userId, req.params.id);
   const safeName = conversation.title.replace(/[^a-z0-9-_ ]/gi, '').trim() || 'conversation';
 
   if (format === 'md') {
@@ -78,6 +84,7 @@ export function handleExportConversation(req: Request, res: Response): void {
 }
 
 export function handleImportConversations(req: Request, res: Response): void {
-  const created = importConversations(req.body);
+  const userId = req.auth?.userId ?? 'local-dev-user';
+  const created = importConversations(userId, req.body);
   res.status(201).json(created);
 }

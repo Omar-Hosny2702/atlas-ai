@@ -3,6 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS conversations (
   id             TEXT PRIMARY KEY,
+  user_id        TEXT NOT NULL DEFAULT 'local-dev-user',
   title          TEXT NOT NULL DEFAULT 'New chat',
   system_prompt  TEXT NOT NULL DEFAULT '',
   model          TEXT NOT NULL,

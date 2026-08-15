@@ -77,7 +77,7 @@ export { app };
 // is a callable handler (req, res) and satisfies that requirement.
 export default app;
 
-if (!process.env.VERCEL) {
+if (!process.env.VERCEL && process.env.NODE_ENV !== 'test') {
   const server = app.listen(config.port, () => {
     logger.info(`Atlas AI backend listening on http://localhost:${config.port}`);
     logger.info(`Expecting Ollama at ${config.ollamaHost}`);

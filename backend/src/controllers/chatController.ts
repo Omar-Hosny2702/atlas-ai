@@ -38,11 +38,12 @@ function startSse(res: Response): void {
 }
 
 async function runGeneration(
+  userId: string,
   conversationId: string,
   res: Response,
   regenerating: boolean
 ): Promise<void> {
-  const conversation = getConversation(conversationId);
+  const conversation = getConversation(userId, conversationId);
   const controller = new AbortController();
   activeGenerations.set(conversationId, controller);
 
@@ -53,7 +54,7 @@ async function runGeneration(
   });
 
   try {
-    const history = buildPromptHistory(conversation, getMessages(conversationId));
+    const history = buildPromptHistory(conversation, getMessages(userId, conversationId));
     let assistantText = '';
 
     const { fullText, stopped } = await streamChatCompletion(
@@ -71,11 +72,11 @@ async function runGeneration(
       controller.signal
     );
 
-    const saved = addMessage(conversationId, 'assistant', fullText || assistantText, { stopped });
+    const saved = addMessage(userId, conversationId, 'assistant', fullText || assistantText, { stopped });
 
     if (!regenerating) {
-      const firstUser = getMessages(conversationId).find((m) => m.role === 'user');
-      if (firstUser) maybeAutoTitle(conversationId, firstUser.content);
+      const firstUser = getMessages(userId, conversationId).find((m) => m.role === 'user');
+      if (firstUser) maybeAutoTitle(userId, conversationId, firstUser.content);
     }
 
     sseWrite(res, { type: 'done', message: saved });
@@ -83,7 +84,7 @@ async function runGeneration(
     const message =
       err instanceof AppError ? err.message : 'The assistant ran into an unexpected error.';
     logger.error('Generation failed', err);
-    const saved = addMessage(conversationId, 'assistant', '', { error: message });
+    const saved = addMessage(userId, conversationId, 'assistant', '', { error: message });
     sseWrite(res, { type: 'error', message, savedMessage: saved });
   } finally {
     activeGenerations.delete(conversationId);
@@ -93,6 +94,7 @@ async function runGeneration(
 
 /** POST /api/chat/:conversationId — send a user message and stream the reply. */
 export async function sendMessage(req: Request, res: Response): Promise<void> {
+  const userId = req.auth?.userId ?? 'local-dev-user';
   const { conversationId } = req.params;
   const { content, temperature, maxTokens, topP, model } = req.body as z.infer<
     typeof sendMessageSchema
@@ -100,37 +102,50 @@ export async function sendMessage(req: Request, res: Response): Promise<void> {
 
   // Persist any per-message overrides onto the conversation before generating,
   // so the settings the user tweaked in the UI are actually used.
-  const conversation = getConversation(conversationId); // throws 404 if missing
+  const conversation = getConversation(userId, conversationId); // throws 404 if missing
   if (
     temperature !== undefined ||
     maxTokens !== undefined ||
     topP !== undefined ||
     (model !== undefined && model !== conversation.model)
   ) {
-    updateConversation(conversationId, { temperature, maxTokens, topP, model });
+    updateConversation(userId, conversationId, { temperature, maxTokens, topP, model });
   }
 
-  addMessage(conversationId, 'user', content);
-  await runGeneration(conversationId, res, false);
+  addMessage(userId, conversationId, 'user', content);
+  await runGeneration(userId, conversationId, res, false);
 }
 
 /** POST /api/chat/:conversationId/regenerate — drop the last assistant reply and retry. */
 export async function regenerateMessage(req: Request, res: Response): Promise<void> {
+  const userId = req.auth?.userId ?? 'local-dev-user';
   const { conversationId } = req.params;
-  const messages = getMessages(conversationId);
+  const messages = getMessages(userId, conversationId);
   const lastAssistantIndex = [...messages].reverse().findIndex((m) => m.role === 'assistant');
 
   if (lastAssistantIndex !== -1) {
     const target = messages[messages.length - 1 - lastAssistantIndex];
-    deleteMessagesFrom(conversationId, target.createdAt);
+    deleteMessagesFrom(userId, conversationId, target.createdAt);
   }
 
-  await runGeneration(conversationId, res, true);
+  await runGeneration(userId, conversationId, res, true);
 }
 
 /** POST /api/chat/:conversationId/stop — cancel an in-flight generation. */
 export function stopGeneration(req: Request, res: Response): void {
+  const userId = req.auth?.userId ?? 'local-dev-user';
   const { conversationId } = req.params;
+
+  try {
+    getConversation(userId, conversationId);
+  } catch (error) {
+    if (error instanceof AppError) {
+      res.status(error.statusCode).json({ error: error.message });
+      return;
+    }
+    throw error;
+  }
+
   const controller = activeGenerations.get(conversationId);
   if (!controller) {
     res.status(404).json({ error: 'No generation is currently running for this conversation.' });

@@ -27,6 +27,16 @@ export function getDatabase(): Database.Database {
   const schema = fs.readFileSync(schemaPath, 'utf-8');
   db.exec(schema);
 
+  const columns = db.prepare('PRAGMA table_info(conversations)').all() as Array<{ name: string }>;
+  if (!columns.some((column) => column.name === 'user_id')) {
+    db.exec('ALTER TABLE conversations ADD COLUMN user_id TEXT;');
+  }
+
+  db.exec(`
+    UPDATE conversations SET user_id = 'legacy-unknown-user' WHERE user_id IS NULL OR user_id = '';
+    CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id);
+  `);
+
   logger.info(`Database ready at ${config.databasePath}`);
   return db;
 }

@@ -31,11 +31,17 @@ function normalizeCorsOrigins(value: string | undefined, fallback: string): stri
     .filter(Boolean);
 }
 
+const auth0DisabledSetting = process.env.AUTH0_DISABLED ?? 'true';
+
 export const config = {
   port: readInt('PORT', 8787),
   corsOrigins: normalizeCorsOrigins(process.env.CORS_ORIGIN, defaultCorsOrigin),
   ollamaHost: process.env.OLLAMA_HOST ?? 'http://127.0.0.1:11434',
   defaultModel: process.env.DEFAULT_MODEL ?? 'gemini-2.5-flash',
+  auth0Domain: process.env.AUTH0_DOMAIN ?? '',
+  auth0Audience: process.env.AUTH0_AUDIENCE ?? '',
+  auth0Issuer: process.env.AUTH0_ISSUER ?? '',
+  auth0Disabled: auth0DisabledSetting.toLowerCase() === 'true' || (!process.env.AUTH0_DOMAIN && !process.env.AUTH0_AUDIENCE && !process.env.AUTH0_ISSUER),
   // Determine database path with the following precedence:
   // 1. Explicit absolute `DATABASE_PATH` env var
   // 2. If running on Vercel (serverless, read-only project fs), use a writable tmp path

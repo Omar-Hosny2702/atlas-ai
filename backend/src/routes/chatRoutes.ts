@@ -1,10 +1,13 @@
 import { Router } from 'express';
 import { regenerateMessage, sendMessage, sendMessageSchema, stopGeneration } from '../controllers/chatController.js';
+import { requireAuth } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validateRequest.js';
 import { chatRateLimiter } from '../middleware/rateLimiter.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
 const router = Router();
+
+router.use(requireAuth);
 
 router.post(
   '/:conversationId',

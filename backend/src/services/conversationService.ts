@@ -18,6 +18,7 @@ import { DEFAULT_SYSTEM_PROMPT } from '../ai/systemPrompts.js';
 
 interface ConversationRow {
   id: string;
+  user_id: string;
   title: string;
   system_prompt: string;
   model: string;
@@ -68,7 +69,7 @@ function rowToMessage(row: MessageRow): Message {
 
 // --- conversations -----------------------------------------------------------
 
-export function createConversation(body: CreateConversationBody): Conversation {
+export function createConversation(userId: string, body: CreateConversationBody): Conversation {
   const db = getDatabase();
   const now = new Date().toISOString();
   const model = body.model ?? config.defaultModel;
@@ -79,6 +80,7 @@ export function createConversation(body: CreateConversationBody): Conversation {
 
   const conversation: ConversationRow = {
     id: nanoid(),
+    user_id: userId,
     title: body.title?.trim() || 'New chat',
     system_prompt: body.systemPrompt ?? DEFAULT_SYSTEM_PROMPT,
     model,
@@ -92,14 +94,14 @@ export function createConversation(body: CreateConversationBody): Conversation {
 
   db.prepare(
     `INSERT INTO conversations
-      (id, title, system_prompt, model, temperature, max_tokens, top_p, pinned, created_at, updated_at)
-     VALUES (@id, @title, @system_prompt, @model, @temperature, @max_tokens, @top_p, @pinned, @created_at, @updated_at)`
+      (id, user_id, title, system_prompt, model, temperature, max_tokens, top_p, pinned, created_at, updated_at)
+     VALUES (@id, @user_id, @title, @system_prompt, @model, @temperature, @max_tokens, @top_p, @pinned, @created_at, @updated_at)`
   ).run(conversation);
 
   return rowToConversation(conversation);
 }
 
-export function listConversations(): ConversationSummary[] {
+export function listConversations(userId: string): ConversationSummary[] {
   const db = getDatabase();
   const rows = db
     .prepare(
@@ -107,9 +109,10 @@ export function listConversations(): ConversationSummary[] {
               (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id) AS message_count,
               (SELECT content FROM messages m WHERE m.conversation_id = c.id ORDER BY m.created_at DESC LIMIT 1) AS last_message
        FROM conversations c
+       WHERE c.user_id = @user_id
        ORDER BY c.pinned DESC, c.updated_at DESC`
     )
-    .all() as Array<ConversationRow & { message_count: number; last_message: string | null }>;
+    .all({ user_id: userId }) as Array<ConversationRow & { message_count: number; last_message: string | null }>;
 
   return rows.map((row) => ({
     ...rowToConversation(row),
@@ -118,9 +121,9 @@ export function listConversations(): ConversationSummary[] {
   }));
 }
 
-export function getConversation(id: string): ConversationWithMessages {
+export function getConversation(userId: string, id: string): ConversationWithMessages {
   const db = getDatabase();
-  const row = db.prepare('SELECT * FROM conversations WHERE id = ?').get(id) as
+  const row = db.prepare('SELECT * FROM conversations WHERE id = ? AND user_id = ?').get(id, userId) as
     | ConversationRow
     | undefined;
   if (!row) throw new AppError('Conversation not found.', 404);
@@ -135,9 +138,9 @@ export function getConversation(id: string): ConversationWithMessages {
   };
 }
 
-export function updateConversation(id: string, body: UpdateConversationBody): Conversation {
+export function updateConversation(userId: string, id: string, body: UpdateConversationBody): Conversation {
   const db = getDatabase();
-  const existing = db.prepare('SELECT * FROM conversations WHERE id = ?').get(id) as
+  const existing = db.prepare('SELECT * FROM conversations WHERE id = ? AND user_id = ?').get(id, userId) as
     | ConversationRow
     | undefined;
   if (!existing) throw new AppError('Conversation not found.', 404);
@@ -164,28 +167,31 @@ export function updateConversation(id: string, body: UpdateConversationBody): Co
        title = @title, system_prompt = @system_prompt, model = @model,
        temperature = @temperature, max_tokens = @max_tokens, top_p = @top_p,
        pinned = @pinned, updated_at = @updated_at
-     WHERE id = @id`
-  ).run(updated);
+     WHERE id = @id AND user_id = @user_id`
+  ).run({ ...updated, user_id: userId });
 
   return rowToConversation(updated);
 }
 
-export function touchConversation(id: string): void {
-  getDatabase()
-    .prepare('UPDATE conversations SET updated_at = ? WHERE id = ?')
-    .run(new Date().toISOString(), id);
+export function touchConversation(userId: string, id: string): void {
+  const result = getDatabase()
+    .prepare('UPDATE conversations SET updated_at = ? WHERE id = ? AND user_id = ?')
+    .run(new Date().toISOString(), id, userId);
+  if (result.changes === 0) {
+    throw new AppError('Conversation not found.', 404);
+  }
 }
 
-export function deleteConversation(id: string): void {
+export function deleteConversation(userId: string, id: string): void {
   const db = getDatabase();
-  const result = db.prepare('DELETE FROM conversations WHERE id = ?').run(id);
+  const result = db.prepare('DELETE FROM conversations WHERE id = ? AND user_id = ?').run(id, userId);
   if (result.changes === 0) throw new AppError('Conversation not found.', 404);
 }
 
-export function searchConversations(query: string): ConversationSummary[] {
+export function searchConversations(userId: string, query: string): ConversationSummary[] {
   const db = getDatabase();
   const trimmed = query.trim();
-  if (!trimmed) return listConversations();
+  if (!trimmed) return listConversations(userId);
 
   // Match conversations by title OR by full-text search over their messages.
   const ftsQuery = trimmed
@@ -201,10 +207,10 @@ export function searchConversations(query: string): ConversationSummary[] {
        FROM conversations c
        LEFT JOIN messages msg ON msg.conversation_id = c.id
        LEFT JOIN messages_fts fts ON fts.rowid = msg.rowid
-       WHERE c.title LIKE @like OR messages_fts MATCH @fts
+       WHERE c.user_id = @user_id AND (c.title LIKE @like OR messages_fts MATCH @fts)
        ORDER BY c.pinned DESC, c.updated_at DESC`
     )
-    .all({ like: `%${trimmed}%`, fts: ftsQuery }) as Array<
+    .all({ user_id: userId, like: `%${trimmed}%`, fts: ftsQuery }) as Array<
     ConversationRow & { message_count: number; last_message: string | null }
   >;
 
@@ -218,12 +224,18 @@ export function searchConversations(query: string): ConversationSummary[] {
 // --- messages -----------------------------------------------------------
 
 export function addMessage(
+  userId: string,
   conversationId: string,
   role: MessageRole,
   content: string,
   extra: { stopped?: boolean; error?: string | null } = {}
 ): Message {
   const db = getDatabase();
+  const owns = db.prepare('SELECT 1 FROM conversations WHERE id = ? AND user_id = ?').get(conversationId, userId);
+  if (!owns) {
+    throw new AppError('Conversation not found.', 404);
+  }
+
   const row: MessageRow = {
     id: nanoid(),
     conversation_id: conversationId,
@@ -237,7 +249,7 @@ export function addMessage(
     `INSERT INTO messages (id, conversation_id, role, content, stopped, error, created_at)
      VALUES (@id, @conversation_id, @role, @content, @stopped, @error, @created_at)`
   ).run(row);
-  touchConversation(conversationId);
+  touchConversation(userId, conversationId);
   return rowToMessage(row);
 }
 
@@ -247,14 +259,24 @@ export function deleteMessage(messageId: string): void {
 }
 
 /** Deletes a message and everything after it in the conversation — used by Regenerate. */
-export function deleteMessagesFrom(conversationId: string, fromCreatedAt: string): void {
-  getDatabase()
-    .prepare('DELETE FROM messages WHERE conversation_id = ? AND created_at >= ?')
-    .run(conversationId, fromCreatedAt);
+export function deleteMessagesFrom(userId: string, conversationId: string, fromCreatedAt: string): void {
+  const db = getDatabase();
+  const owns = db.prepare('SELECT 1 FROM conversations WHERE id = ? AND user_id = ?').get(conversationId, userId);
+  if (!owns) {
+    throw new AppError('Conversation not found.', 404);
+  }
+
+  db.prepare('DELETE FROM messages WHERE conversation_id = ? AND created_at >= ?').run(conversationId, fromCreatedAt);
 }
 
-export function getMessages(conversationId: string): Message[] {
-  const rows = getDatabase()
+export function getMessages(userId: string, conversationId: string): Message[] {
+  const db = getDatabase();
+  const owns = db.prepare('SELECT 1 FROM conversations WHERE id = ? AND user_id = ?').get(conversationId, userId);
+  if (!owns) {
+    throw new AppError('Conversation not found.', 404);
+  }
+
+  const rows = db
     .prepare('SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC')
     .all(conversationId) as MessageRow[];
   return rows.map(rowToMessage);
@@ -264,15 +286,15 @@ export function getMessages(conversationId: string): Message[] {
  * Auto-titles a conversation from its first user message the first time a
  * reply completes, if the title is still the default placeholder.
  */
-export function maybeAutoTitle(conversationId: string, firstUserMessage: string): void {
+export function maybeAutoTitle(userId: string, conversationId: string, firstUserMessage: string): void {
   const db = getDatabase();
-  const row = db.prepare('SELECT title FROM conversations WHERE id = ?').get(conversationId) as
+  const row = db.prepare('SELECT title FROM conversations WHERE id = ? AND user_id = ?').get(conversationId, userId) as
     | { title: string }
     | undefined;
   if (!row || row.title !== 'New chat') return;
 
   const title = firstUserMessage.trim().slice(0, 60) || 'New chat';
-  db.prepare('UPDATE conversations SET title = ? WHERE id = ?').run(title, conversationId);
+  db.prepare('UPDATE conversations SET title = ? WHERE id = ? AND user_id = ?').run(title, conversationId, userId);
 }
 
 // --- long-chat handling -----------------------------------------------------
