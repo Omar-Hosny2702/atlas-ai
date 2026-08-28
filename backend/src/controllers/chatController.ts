@@ -148,8 +148,15 @@ export async function sendMessage(req: Request, res: Response): Promise<void> {
   }
 
   await addMessage(userId, conversationId, 'user', content);
+  const memoryWorthChecking =
+  /\b(remember|my favourite|my favorite|i prefer|i like|i love|i hate|i use|i am|i'm|my project|from now on)\b/i.test(
+    content
+  );
+
+if (memoryWorthChecking) {
   const extractedMemories = await extractMemoriesFromMessage(content);
-await saveUsefulMemories(userId, extractedMemories);
+  await saveUsefulMemories(userId, extractedMemories);
+}
   await runGeneration(userId, conversationId, res, false);
 }
 
