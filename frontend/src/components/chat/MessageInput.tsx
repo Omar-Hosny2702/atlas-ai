@@ -56,7 +56,7 @@ const COMMANDS: AtlasCommand[] = [
     label: 'Remember',
     description: 'Save something for future chats',
     prefix: '/atlas remember ',
-    available: false,
+    available: true,
     icon: Brain,
   },
   {

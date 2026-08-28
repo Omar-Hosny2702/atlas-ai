@@ -10,6 +10,7 @@ import { IconButton } from '@/components/common/IconButton';
 import { ConversationSettingsModal } from '@/components/settings/ConversationSettingsModal';
 import { generateImage } from '@/api/actionsApi';
 import type { Message } from '@/types';
+import { addMemory } from '@/api/settingsApi';
 
 interface ChatWindowProps {
   conversationId: string | null;
@@ -139,6 +140,31 @@ export function ChatWindow({
   };
 
   const handleSend = (content: string) => {
+    const rememberMatch = content.match(
+  /^\/atlas\s+remember\s+(.+)$/i
+);
+
+if (rememberMatch) {
+  const memory = rememberMatch[1].trim();
+
+  if (!memory) return;
+
+  void (async () => {
+    try {
+      await addMemory(memory, 'general');
+      showToast('Saved to Atlas memory.', 'success');
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Could not save memory.';
+
+      showToast(message, 'error');
+    }
+  })();
+
+  return;
+}
     const imageMatch = content.match(
       /^\/atlas\s+image\s+(.+)$/i
     );

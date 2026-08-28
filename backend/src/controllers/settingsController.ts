@@ -1,19 +1,24 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 
-import { SYSTEM_PROMPT_PRESETS, DEFAULT_SYSTEM_PROMPT } from '../ai/systemPrompts.js';
+import {
+  SYSTEM_PROMPT_PRESETS,
+  DEFAULT_SYSTEM_PROMPT,
+} from '../ai/systemPrompts.js';
+
 import { checkOllamaHealth } from '../services/llmService.js';
+
+import {
+  getMemories,
+  addMemory,
+  deleteMemory,
+  clearMemories,
+} from '../services/memoryService.js';
 
 import {
   getPreferences,
   updatePreferences,
 } from '../services/preferenceService.js';
-
-import {
-  getMemories,
-  deleteMemory,
-  clearMemories,
-} from '../services/memoryService.js';
 
 const AVAILABLE_MODELS = [
   {
@@ -57,6 +62,19 @@ export const updatePreferencesSchema = z.object({
   customInstructions: z.string().max(4000).optional(),
 });
 
+export const addMemorySchema = z.object({
+  content: z
+    .string()
+    .trim()
+    .min(1, 'Memory cannot be empty.')
+    .max(1000, 'Memory is too long.'),
+  category: z
+    .string()
+    .trim()
+    .max(50)
+    .optional(),
+});
+
 export async function handleGetSettingsOptions(
   _req: Request,
   res: Response
@@ -95,7 +113,10 @@ export async function handleUpdatePreferences(
 
   const updates = updatePreferencesSchema.parse(req.body);
 
-  const preferences = await updatePreferences(userId, updates);
+  const preferences = await updatePreferences(
+    userId,
+    updates
+  );
 
   res.json(preferences);
 }
@@ -109,6 +130,24 @@ export async function handleGetMemories(
   const memories = await getMemories(userId);
 
   res.json(memories);
+}
+
+export async function handleAddMemory(
+  req: Request,
+  res: Response
+): Promise<void> {
+  const userId = req.auth!.userId;
+
+  const { content, category } =
+    addMemorySchema.parse(req.body);
+
+  const memory = await addMemory(
+    userId,
+    content,
+    category ?? 'general'
+  );
+
+  res.status(201).json(memory);
 }
 
 export async function handleDeleteMemory(

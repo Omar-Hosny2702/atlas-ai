@@ -45,6 +45,19 @@ export function updatePreferences(
   });
 }
 
+export function addMemory(
+  content: string,
+  category = 'general'
+): Promise<Memory> {
+  return apiFetch<Memory>('/settings/memories', {
+    method: 'POST',
+    body: JSON.stringify({
+      content,
+      category,
+    }),
+  });
+}
+
 export function getMemories(): Promise<Memory[]> {
   return apiFetch<Memory[]>('/settings/memories');
 }
