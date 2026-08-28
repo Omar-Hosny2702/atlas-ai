@@ -1,49 +1,39 @@
-import Database from 'better-sqlite3';
+import postgres from 'postgres';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from '../config/config.js';
 import { logger } from '../utils/logger.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+let sql: postgres.Sql | null = null;
 
-let db: Database.Database | null = null;
+export async function getDatabase(): Promise<postgres.Sql> {
+  if (sql) return sql;
 
-/**
- * Opens (creating if necessary) the SQLite database and applies the schema.
- * Safe to call multiple times — schema application is idempotent.
- */
-export function getDatabase(): Database.Database {
-  if (db) return db;
-
-  const dir = path.dirname(config.databasePath);
-  fs.mkdirSync(dir, { recursive: true });
-
-  db = new Database(config.databasePath);
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
-
-  const schemaPath = path.resolve(__dirname, 'schema.sql');
-  const schema = fs.readFileSync(schemaPath, 'utf-8');
-  db.exec(schema);
-
-  const columns = db.prepare('PRAGMA table_info(conversations)').all() as Array<{ name: string }>;
-  if (!columns.some((column) => column.name === 'user_id')) {
-    db.exec('ALTER TABLE conversations ADD COLUMN user_id TEXT;');
+  if (!config.databaseUrl) {
+    throw new Error('DATABASE_URL is not configured.');
   }
 
-  db.exec(`
-    UPDATE conversations SET user_id = 'legacy-unknown-user' WHERE user_id IS NULL OR user_id = '';
-    CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id);
-  `);
+  sql = postgres(config.databaseUrl, {
+    max: 5,
+    idle_timeout: 20,
+    connect_timeout: 10,
+  });
 
-  logger.info(`Database ready at ${config.databasePath}`);
-  return db;
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const schemaPath = path.join(__dirname, 'schema.sql');
+  const schema = fs.readFileSync(schemaPath, 'utf8');
+
+  await sql.unsafe(schema);
+
+  logger.info('PostgreSQL database ready');
+
+  return sql;
 }
 
-export function closeDatabase(): void {
-  if (db) {
-    db.close();
-    db = null;
+export async function closeDatabase(): Promise<void> {
+  if (sql) {
+    await sql.end();
+    sql = null;
   }
 }

@@ -31,7 +31,7 @@ const importedConversationSchema = z.object({
  * (so users can re-import a batch exported earlier). Unknown models fall
  * back to the server default rather than rejecting the whole import.
  */
-export function importConversations(userId: string, payload: unknown): Conversation[] {
+export async function importConversations(userId: string, payload: unknown): Promise<Conversation[]> {
   const arraySchema = z.union([importedConversationSchema, z.array(importedConversationSchema)]);
   const parsed = arraySchema.safeParse(payload);
 
@@ -51,7 +51,7 @@ export function importConversations(userId: string, payload: unknown): Conversat
 
   for (const item of items) {
     const resolvedModel = item.model && getModelById(item.model) ? item.model : config.defaultModel;
-    const conversation = createConversation(userId, {
+    const conversation = await createConversation(userId, {
       title: item.title ?? 'Imported chat',
       systemPrompt: item.systemPrompt,
       model: resolvedModel,
@@ -61,7 +61,7 @@ export function importConversations(userId: string, payload: unknown): Conversat
     });
 
     for (const message of item.messages) {
-      addMessage(userId, conversation.id, message.role, message.content);
+      await addMessage(userId, conversation.id, message.role, message.content);
     }
 
     created.push(conversation);

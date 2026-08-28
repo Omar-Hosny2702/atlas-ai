@@ -43,7 +43,7 @@ async function runGeneration(
   res: Response,
   regenerating: boolean
 ): Promise<void> {
-  const conversation = getConversation(userId, conversationId);
+  const conversation = await getConversation(userId, conversationId);
   const controller = new AbortController();
   activeGenerations.set(conversationId, controller);
 
@@ -54,7 +54,10 @@ async function runGeneration(
   });
 
   try {
-    const history = buildPromptHistory(conversation, getMessages(userId, conversationId));
+   const history = buildPromptHistory(
+  conversation,
+  await getMessages(userId, conversationId)
+);
     let assistantText = '';
 
     const { fullText, stopped } = await streamChatCompletion(
@@ -72,11 +75,11 @@ async function runGeneration(
       controller.signal
     );
 
-    const saved = addMessage(userId, conversationId, 'assistant', fullText || assistantText, { stopped });
+    const saved = await addMessage(userId, conversationId, 'assistant', fullText || assistantText, { stopped });
 
     if (!regenerating) {
-      const firstUser = getMessages(userId, conversationId).find((m) => m.role === 'user');
-      if (firstUser) maybeAutoTitle(userId, conversationId, firstUser.content);
+      const firstUser = (await getMessages(userId, conversationId)).find((m) => m.role === 'user');
+      if (firstUser) await maybeAutoTitle(userId, conversationId, firstUser.content);
     }
 
     sseWrite(res, { type: 'done', message: saved });
@@ -102,7 +105,7 @@ export async function sendMessage(req: Request, res: Response): Promise<void> {
 
   // Persist any per-message overrides onto the conversation before generating,
   // so the settings the user tweaked in the UI are actually used.
-  const conversation = getConversation(userId, conversationId); // throws 404 if missing
+  const conversation = await getConversation(userId, conversationId); // throws 404 if missing
   if (
     temperature !== undefined ||
     maxTokens !== undefined ||
@@ -112,7 +115,7 @@ export async function sendMessage(req: Request, res: Response): Promise<void> {
     updateConversation(userId, conversationId, { temperature, maxTokens, topP, model });
   }
 
-  addMessage(userId, conversationId, 'user', content);
+  await addMessage(userId, conversationId, 'user', content);
   await runGeneration(userId, conversationId, res, false);
 }
 
@@ -120,7 +123,7 @@ export async function sendMessage(req: Request, res: Response): Promise<void> {
 export async function regenerateMessage(req: Request, res: Response): Promise<void> {
   const userId = req.auth?.userId ?? 'local-dev-user';
   const { conversationId } = req.params;
-  const messages = getMessages(userId, conversationId);
+  const messages = await getMessages(userId, conversationId);
   const lastAssistantIndex = [...messages].reverse().findIndex((m) => m.role === 'assistant');
 
   if (lastAssistantIndex !== -1) {
