@@ -1,13 +1,16 @@
 import { useState } from 'react';
 import clsx from 'clsx';
+
 import { Modal } from '@/components/common/Modal';
+import { useSettings } from '@/context/SettingsContext';
+
 import { GeneralSettings } from './GeneralSettings';
+import { AccountSettings } from './AccountSettings';
 import { ModelSettings } from './ModelSettings';
 import { AppearanceSettings } from './AppearanceSettings';
-import { DataSettings } from './DataSettings';
-import { useSettings } from '@/context/SettingsContext';
 import { PersonalisationSettings } from './PersonalisationSettings';
 import { MemorySettings } from './MemorySettings';
+import { DataSettings } from './DataSettings';
 
 interface SettingsModalProps {
   open: boolean;
@@ -16,53 +19,78 @@ interface SettingsModalProps {
 
 const TABS = [
   'General',
+  'Account',
   'Model defaults',
   'Appearance',
   'Personalisation',
   'Memory',
   'Data',
 ] as const;
+
 type Tab = (typeof TABS)[number];
 
-export function SettingsModal({ open, onClose }: SettingsModalProps) {
+export function SettingsModal({
+  open,
+  onClose,
+}: SettingsModalProps) {
   const [tab, setTab] = useState<Tab>('General');
   const { defaults, setDefaults } = useSettings();
 
   return (
-    <Modal open={open} onClose={onClose} title="Settings" size="lg">
-      <div className="flex flex-col sm:flex-row gap-5 -mt-1">
-        <nav className="flex sm:flex-col gap-1 shrink-0 sm:w-40 overflow-x-auto sm:overflow-visible">
-          {TABS.map((t) => (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Settings"
+      size="lg"
+    >
+      <div className="flex flex-col gap-5 -mt-1 sm:flex-row">
+        <nav className="flex shrink-0 gap-1 overflow-x-auto sm:w-40 sm:flex-col sm:overflow-visible">
+          {TABS.map((item) => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
+              key={item}
+              type="button"
+              onClick={() => setTab(item)}
               className={clsx(
-                'text-left text-sm px-3 py-2 rounded-lg whitespace-nowrap transition-colors',
-                tab === t
-                  ? 'bg-accent-100 dark:bg-ink-raised text-accent-800 dark:text-paper font-medium'
-                  : 'hover:bg-paper-alt dark:hover:bg-ink-raised text-muted-light dark:text-muted-dark'
+                'whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm transition-colors',
+                tab === item
+                  ? 'bg-accent-100 font-medium text-accent-800 dark:bg-ink-raised dark:text-paper'
+                  : 'text-muted-light hover:bg-paper-alt dark:text-muted-dark dark:hover:bg-ink-raised'
               )}
             >
-              {t}
+              {item}
             </button>
           ))}
         </nav>
 
-        <div className="grow min-w-0">
+        <div className="min-w-0 grow">
           {tab === 'General' && <GeneralSettings />}
+
+          {tab === 'Account' && <AccountSettings />}
+
           {tab === 'Model defaults' && (
             <>
-              <p className="text-xs text-muted-light dark:text-muted-dark mb-4">
-                These apply to every new chat you start. You can still override them for an
-                individual conversation from its own settings icon.
+              <p className="mb-4 text-xs text-muted-light dark:text-muted-dark">
+                These apply to every new chat you start. You can still
+                override them for an individual conversation from its own
+                settings icon.
               </p>
-              <ModelSettings values={defaults} onChange={setDefaults} />
+
+              <ModelSettings
+                values={defaults}
+                onChange={setDefaults}
+              />
             </>
           )}
+
           {tab === 'Appearance' && <AppearanceSettings />}
+
+          {tab === 'Personalisation' && (
+            <PersonalisationSettings />
+          )}
+
+          {tab === 'Memory' && <MemorySettings />}
+
           {tab === 'Data' && <DataSettings />}
-          {tab === 'Personalisation' && <PersonalisationSettings />}
-{tab === 'Memory' && <MemorySettings />}
         </div>
       </div>
     </Modal>
