@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Menu, Settings2 } from 'lucide-react';
 import { useChat } from '@/hooks/useChat';
 import { useConversations } from '@/context/ConversationContext';
-import { useSettings } from '@/context/SettingsContext';
 import { useToast } from '@/context/ToastContext';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
@@ -27,7 +26,7 @@ export function ChatWindow({
     selectConversation,
   } = useConversations();
 
-  const { options } = useSettings();
+
   const { showToast } = useToast();
 
   const [conversationSettingsOpen, setConversationSettingsOpen] =
@@ -59,8 +58,7 @@ export function ChatWindow({
     }
   }, [streamError, showToast]);
 
-  const ollamaDown =
-    options !== null && !options.ollama.reachable;
+
 
   const handleSuggestion = (text: string) => {
     send(text);
@@ -263,18 +261,10 @@ export function ChatWindow({
       )}
 
       <MessageInput
-        onSend={handleSend}
-        onStop={stop}
-        isStreaming={
-          isStreaming || isRunningAction
-        }
-        disabled={ollamaDown}
-        disabledReason={
-          ollamaDown
-            ? 'Can\'t reach Ollama. Run "ollama serve" and reload the page.'
-            : undefined
-        }
-      />
+  onSend={handleSend}
+  onStop={stop}
+  isStreaming={isStreaming || isRunningAction}
+/>
 
       <ConversationSettingsModal
         open={conversationSettingsOpen}
