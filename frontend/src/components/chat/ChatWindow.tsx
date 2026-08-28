@@ -9,17 +9,32 @@ import { MessageInput } from './MessageInput';
 import { EmptyState } from './EmptyState';
 import { IconButton } from '@/components/common/IconButton';
 import { ConversationSettingsModal } from '@/components/settings/ConversationSettingsModal';
+import { generateImage } from '@/api/actionsApi';
+import type { Message } from '@/types';
 
 interface ChatWindowProps {
   conversationId: string | null;
   onOpenSidebar: () => void;
 }
 
-export function ChatWindow({ conversationId, onOpenSidebar }: ChatWindowProps) {
-  const { refreshList, createNewConversation, selectConversation } = useConversations();
+export function ChatWindow({
+  conversationId,
+  onOpenSidebar,
+}: ChatWindowProps) {
+  const {
+    refreshList,
+    createNewConversation,
+    selectConversation,
+  } = useConversations();
+
   const { options } = useSettings();
   const { showToast } = useToast();
-  const [conversationSettingsOpen, setConversationSettingsOpen] = useState(false);
+
+  const [conversationSettingsOpen, setConversationSettingsOpen] =
+    useState(false);
+
+  const [actionMessages, setActionMessages] = useState<Message[]>([]);
+  const [isRunningAction, setIsRunningAction] = useState(false);
 
   const {
     conversation,
@@ -35,30 +50,141 @@ export function ChatWindow({ conversationId, onOpenSidebar }: ChatWindowProps) {
   } = useChat(conversationId, refreshList);
 
   useEffect(() => {
-    if (streamError) showToast(streamError, 'error');
+    setActionMessages([]);
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (streamError) {
+      showToast(streamError, 'error');
+    }
   }, [streamError, showToast]);
 
-  const ollamaDown = options !== null && !options.ollama.reachable;
+  const ollamaDown =
+    options !== null && !options.ollama.reachable;
 
   const handleSuggestion = (text: string) => {
     send(text);
   };
 
+  const runImageAction = async (
+    originalContent: string,
+    prompt: string
+  ) => {
+    if (!conversationId || isRunningAction) return;
+
+    const userMessage: Message = {
+      id: crypto.randomUUID(),
+      conversationId,
+      role: 'user',
+      content: originalContent,
+      createdAt: new Date().toISOString(),
+    };
+
+    const assistantId = crypto.randomUUID();
+
+    const generatingMessage: Message = {
+      id: assistantId,
+      conversationId,
+      role: 'assistant',
+      content: 'Generating image…',
+      createdAt: new Date().toISOString(),
+    };
+
+    setActionMessages((current) => [
+      ...current,
+      userMessage,
+      generatingMessage,
+    ]);
+
+    setIsRunningAction(true);
+
+    try {
+      const result = await generateImage(prompt);
+
+      setActionMessages((current) =>
+        current.map((message) =>
+          message.id === assistantId
+            ? {
+                ...message,
+                content: '',
+                image: {
+                  mimeType: result.mimeType,
+                  data: result.data,
+                  alt: prompt,
+                },
+              }
+            : message
+        )
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Image generation failed.';
+
+      setActionMessages((current) =>
+        current.map((item) =>
+          item.id === assistantId
+            ? {
+                ...item,
+                content: '',
+                error: message,
+              }
+            : item
+        )
+      );
+
+      showToast(message, 'error');
+    } finally {
+      setIsRunningAction(false);
+    }
+  };
+
+  const handleSend = (content: string) => {
+    const imageMatch = content.match(
+      /^\/atlas\s+image\s+(.+)$/i
+    );
+
+    if (!imageMatch) {
+      send(content);
+      return;
+    }
+
+    const prompt = imageMatch[1].trim();
+
+    if (!prompt || !conversationId) return;
+
+    void runImageAction(content, prompt);
+  };
+
   const handleNewChat = async () => {
     const id = await createNewConversation();
-    if (id) selectConversation(id);
+
+    if (id) {
+      selectConversation(id);
+    }
   };
 
   if (!conversationId) {
     return (
       <div className="flex flex-col h-full">
         <header className="flex md:hidden items-center gap-2 border-b border-border-light dark:border-border-dark px-3 py-3 shrink-0">
-          <IconButton label="Open sidebar" onClick={onOpenSidebar}>
+          <IconButton
+            label="Open sidebar"
+            onClick={onOpenSidebar}
+          >
             <Menu size={18} />
           </IconButton>
-          <h2 className="font-display font-semibold text-sm">Atlas AI</h2>
+
+          <h2 className="font-display font-semibold text-sm">
+            Atlas AI
+          </h2>
         </header>
-        <EmptyState variant="no-conversation" onNewChat={handleNewChat} />
+
+        <EmptyState
+          variant="no-conversation"
+          onNewChat={handleNewChat}
+        />
       </div>
     );
   }
@@ -66,22 +192,42 @@ export function ChatWindow({ conversationId, onOpenSidebar }: ChatWindowProps) {
   if (loadError) {
     return (
       <div className="flex flex-col h-full items-center justify-center px-6 text-center">
-        <p className="text-sm text-danger-light dark:text-danger-dark">{loadError}</p>
+        <p className="text-sm text-danger-light dark:text-danger-dark">
+          {loadError}
+        </p>
       </div>
     );
   }
+
+  const visibleMessages = [
+    ...messages,
+    ...actionMessages,
+  ];
+
+  const hasMessages =
+    visibleMessages.filter(
+      (message) => message.role !== 'system'
+    ).length > 0;
 
   return (
     <div className="flex flex-col h-full">
       <header className="flex items-center justify-between gap-2 border-b border-border-light dark:border-border-dark px-3 sm:px-6 py-3 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
-          <IconButton label="Open sidebar" onClick={onOpenSidebar} className="md:hidden">
+          <IconButton
+            label="Open sidebar"
+            onClick={onOpenSidebar}
+            className="md:hidden"
+          >
             <Menu size={18} />
           </IconButton>
+
           <div className="min-w-0">
             <h2 className="font-display font-semibold text-sm truncate">
-              {loading ? 'Loading…' : conversation?.title ?? 'New chat'}
+              {loading
+                ? 'Loading…'
+                : conversation?.title ?? 'New chat'}
             </h2>
+
             {conversation && (
               <p className="text-[11px] text-muted-light dark:text-muted-dark truncate">
                 {conversation.model}
@@ -89,36 +235,52 @@ export function ChatWindow({ conversationId, onOpenSidebar }: ChatWindowProps) {
             )}
           </div>
         </div>
+
         <IconButton
           label="Conversation settings"
-          onClick={() => setConversationSettingsOpen(true)}
+          onClick={() =>
+            setConversationSettingsOpen(true)
+          }
           disabled={!conversation}
         >
           <Settings2 size={17} />
         </IconButton>
       </header>
 
-      {!loading && messages.filter((m) => m.role !== 'system').length === 0 ? (
-        <EmptyState variant="new-conversation" onSuggestion={handleSuggestion} />
+      {!loading && !hasMessages ? (
+        <EmptyState
+          variant="new-conversation"
+          onSuggestion={handleSuggestion}
+        />
       ) : (
-        <MessageList messages={messages} isStreaming={isStreaming} onRegenerate={regenerate} />
+        <MessageList
+          messages={visibleMessages}
+          isStreaming={
+            isStreaming || isRunningAction
+          }
+          onRegenerate={regenerate}
+        />
       )}
 
       <MessageInput
-        onSend={send}
+        onSend={handleSend}
         onStop={stop}
-        isStreaming={isStreaming}
+        isStreaming={
+          isStreaming || isRunningAction
+        }
         disabled={ollamaDown}
         disabledReason={
           ollamaDown
-            ? "Can't reach Ollama. Run \"ollama serve\" and reload the page."
+            ? 'Can\'t reach Ollama. Run "ollama serve" and reload the page.'
             : undefined
         }
       />
 
       <ConversationSettingsModal
         open={conversationSettingsOpen}
-        onClose={() => setConversationSettingsOpen(false)}
+        onClose={() =>
+          setConversationSettingsOpen(false)
+        }
         conversation={conversation}
         onSaved={() => {
           reload();

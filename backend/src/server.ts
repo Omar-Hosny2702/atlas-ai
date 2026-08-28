@@ -12,6 +12,7 @@ import chatRoutes from './routes/chatRoutes.js';
 import conversationRoutes from './routes/conversationRoutes.js';
 import settingsRoutes from './routes/settingsRoutes.js';
 import healthRoutes from './routes/healthRoutes.js';
+import actionRoutes from './routes/actionRoutes.js';
 
 // Ensure the database (and schema) exist before the server starts accepting traffic.
 getDatabase();
@@ -62,6 +63,7 @@ app.use('/api/health', healthRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/actions', actionRoutes);
 
 // Lightweight root status endpoint to satisfy platform health checks
 app.get('/', (req, res) => {
