@@ -80,7 +80,7 @@ export async function handleGetPreferences(
   req: Request,
   res: Response
 ): Promise<void> {
-  const userId = req.auth?.userId ?? 'local-dev-user';
+  const userId = req.auth!.userId;
 
   const preferences = await getPreferences(userId);
 
@@ -91,7 +91,7 @@ export async function handleUpdatePreferences(
   req: Request,
   res: Response
 ): Promise<void> {
-  const userId = req.auth?.userId ?? 'local-dev-user';
+  const userId = req.auth!.userId;
 
   const updates = updatePreferencesSchema.parse(req.body);
 
@@ -104,7 +104,7 @@ export async function handleGetMemories(
   req: Request,
   res: Response
 ): Promise<void> {
-  const userId = req.auth?.userId ?? 'local-dev-user';
+  const userId = req.auth!.userId;
 
   const memories = await getMemories(userId);
 
@@ -115,7 +115,7 @@ export async function handleDeleteMemory(
   req: Request,
   res: Response
 ): Promise<void> {
-  const userId = req.auth?.userId ?? 'local-dev-user';
+  const userId = req.auth!.userId;
 
   await deleteMemory(userId, req.params.id);
 
@@ -126,7 +126,7 @@ export async function handleClearMemories(
   req: Request,
   res: Response
 ): Promise<void> {
-  const userId = req.auth?.userId ?? 'local-dev-user';
+  const userId = req.auth!.userId;
 
   await clearMemories(userId);
 
