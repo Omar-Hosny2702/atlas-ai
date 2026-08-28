@@ -32,3 +32,5 @@ coverage/
 
 # Vite
 frontend/.vite/
+.vercel
+.env*

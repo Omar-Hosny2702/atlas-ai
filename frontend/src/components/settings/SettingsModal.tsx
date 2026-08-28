@@ -6,13 +6,22 @@ import { ModelSettings } from './ModelSettings';
 import { AppearanceSettings } from './AppearanceSettings';
 import { DataSettings } from './DataSettings';
 import { useSettings } from '@/context/SettingsContext';
+import { PersonalisationSettings } from './PersonalisationSettings';
+import { MemorySettings } from './MemorySettings';
 
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
 }
 
-const TABS = ['General', 'Model defaults', 'Appearance', 'Data'] as const;
+const TABS = [
+  'General',
+  'Model defaults',
+  'Appearance',
+  'Personalisation',
+  'Memory',
+  'Data',
+] as const;
 type Tab = (typeof TABS)[number];
 
 export function SettingsModal({ open, onClose }: SettingsModalProps) {
@@ -52,6 +61,8 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           )}
           {tab === 'Appearance' && <AppearanceSettings />}
           {tab === 'Data' && <DataSettings />}
+          {tab === 'Personalisation' && <PersonalisationSettings />}
+{tab === 'Memory' && <MemorySettings />}
         </div>
       </div>
     </Modal>

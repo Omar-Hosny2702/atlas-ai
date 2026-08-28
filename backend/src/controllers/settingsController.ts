@@ -1,4 +1,20 @@
 import type { Request, Response } from 'express';
+import { z } from 'zod';
+
+import { SYSTEM_PROMPT_PRESETS, DEFAULT_SYSTEM_PROMPT } from '../ai/systemPrompts.js';
+import { checkOllamaHealth } from '../services/llmService.js';
+
+import {
+  getPreferences,
+  updatePreferences,
+} from '../services/preferenceService.js';
+
+import {
+  getMemories,
+  deleteMemory,
+  clearMemories,
+} from '../services/memoryService.js';
+
 const AVAILABLE_MODELS = [
   {
     id: 'gemini-2.5-flash',
@@ -32,11 +48,21 @@ const PARAM_BOUNDS = {
   topP: { min: 0, max: 1 },
 };
 
-import { SYSTEM_PROMPT_PRESETS, DEFAULT_SYSTEM_PROMPT } from '../ai/systemPrompts.js';
-import { checkOllamaHealth } from '../services/llmService.js';
+export const updatePreferencesSchema = z.object({
+  tone: z.string().max(50).optional(),
+  verbosity: z.string().max(50).optional(),
+  personality: z.string().max(50).optional(),
+  languageStyle: z.string().max(50).optional(),
+  useEmojis: z.boolean().optional(),
+  customInstructions: z.string().max(4000).optional(),
+});
 
-export async function handleGetSettingsOptions(_req: Request, res: Response): Promise<void> {
+export async function handleGetSettingsOptions(
+  _req: Request,
+  res: Response
+): Promise<void> {
   const ollama = await checkOllamaHealth();
+
   res.json({
     models: AVAILABLE_MODELS,
     defaultModel: DEFAULT_MODEL_ID,
@@ -48,4 +74,61 @@ export async function handleGetSettingsOptions(_req: Request, res: Response): Pr
       pulledModels: ollama.models,
     },
   });
+}
+
+export async function handleGetPreferences(
+  req: Request,
+  res: Response
+): Promise<void> {
+  const userId = req.auth?.userId ?? 'local-dev-user';
+
+  const preferences = await getPreferences(userId);
+
+  res.json(preferences);
+}
+
+export async function handleUpdatePreferences(
+  req: Request,
+  res: Response
+): Promise<void> {
+  const userId = req.auth?.userId ?? 'local-dev-user';
+
+  const updates = updatePreferencesSchema.parse(req.body);
+
+  const preferences = await updatePreferences(userId, updates);
+
+  res.json(preferences);
+}
+
+export async function handleGetMemories(
+  req: Request,
+  res: Response
+): Promise<void> {
+  const userId = req.auth?.userId ?? 'local-dev-user';
+
+  const memories = await getMemories(userId);
+
+  res.json(memories);
+}
+
+export async function handleDeleteMemory(
+  req: Request,
+  res: Response
+): Promise<void> {
+  const userId = req.auth?.userId ?? 'local-dev-user';
+
+  await deleteMemory(userId, req.params.id);
+
+  res.status(204).send();
+}
+
+export async function handleClearMemories(
+  req: Request,
+  res: Response
+): Promise<void> {
+  const userId = req.auth?.userId ?? 'local-dev-user';
+
+  await clearMemories(userId);
+
+  res.status(204).send();
 }
