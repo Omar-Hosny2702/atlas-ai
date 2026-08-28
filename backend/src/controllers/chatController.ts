@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
+import { saveUsefulMemories } from '../services/memoryExtractionService.js';
 import {
   addMessage,
   buildPromptHistory,
@@ -9,9 +10,14 @@ import {
   maybeAutoTitle,
   updateConversation,
 } from '../services/conversationService.js';
-import { streamChatCompletion } from '../services/llmService.js';
+import {
+  streamChatCompletion,
+  extractMemoriesFromMessage,
+} from '../services/llmService.js';
 import { AppError } from '../types/index.js';
 import { logger } from '../utils/logger.js';
+import { getMemories } from '../services/memoryService.js';
+import { getPreferences } from '../services/preferenceService.js';
 
 export const sendMessageSchema = z.object({
   content: z.string().min(1, 'Message cannot be empty.').max(32000, 'Message is too long.'),
@@ -58,6 +64,32 @@ async function runGeneration(
   conversation,
   await getMessages(userId, conversationId)
 );
+
+
+const preferences = await getPreferences(userId);
+const memories = await getMemories(userId);
+
+const userContext = `
+USER PERSONALISATION:
+- Tone: ${preferences.tone}
+- Response length: ${preferences.verbosity}
+- Personality: ${preferences.personality}
+- Language style: ${preferences.languageStyle}
+- Use emojis: ${preferences.useEmojis ? 'yes' : 'no'}
+- Custom instructions: ${preferences.customInstructions || 'none'}
+
+USER MEMORIES:
+${memories.length
+  ? memories.map((memory) => `- ${memory.content}`).join('\n')
+  : '- No saved memories yet.'}
+
+Follow the user's personalisation naturally. Use memories only when relevant.
+`;
+
+history.unshift({
+  role: 'system',
+  content: userContext,
+});
     let assistantText = '';
 
     const { fullText, stopped } = await streamChatCompletion(
@@ -116,6 +148,8 @@ export async function sendMessage(req: Request, res: Response): Promise<void> {
   }
 
   await addMessage(userId, conversationId, 'user', content);
+  const extractedMemories = await extractMemoriesFromMessage(content);
+await saveUsefulMemories(userId, extractedMemories);
   await runGeneration(userId, conversationId, res, false);
 }
 

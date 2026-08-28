@@ -7,8 +7,6 @@ import { AppError } from '../types/index.js';
 import type { Message } from '../types/index.js';
 import { getModelById, clamp, PARAM_BOUNDS } from '../ai/modelConfig.js';
 
-// Load GEMINI_API_KEY from backend/.env regardless of the working directory
-// the process was started from (this file lives at backend/src/services/).
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
@@ -19,15 +17,19 @@ export interface GenerationParams {
   topP: number;
 }
 
-/** Fallback model used when a caller doesn't specify one. */
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 
 const apiKey = process.env.GEMINI_API_KEY;
+
 if (!apiKey) {
-  logger.warn('GEMINI_API_KEY is not set. Add it to backend/.env to use the Gemini API.');
+  logger.warn(
+    'GEMINI_API_KEY is not set. Add it to backend/.env to use the Gemini API.'
+  );
 }
 
-const genAI = new GoogleGenAI({ apiKey: apiKey ?? '' });
+const genAI = new GoogleGenAI({
+  apiKey: apiKey ?? '',
+});
 
 type GeminiRole = 'user' | 'model';
 
@@ -39,26 +41,33 @@ interface GeminiContent {
 function sanitizeParams(raw: GenerationParams): GenerationParams {
   const modelId = raw.model || DEFAULT_MODEL;
   const modelDef = getModelById(modelId);
+
   if (!modelDef) {
     throw new AppError(
       `Unknown model "${modelId}". Add it to ai/modelConfig.ts first.`,
       400
     );
   }
+
   return {
     model: modelId,
-    temperature: clamp(raw.temperature, PARAM_BOUNDS.temperature.min, PARAM_BOUNDS.temperature.max),
-    maxTokens: clamp(raw.maxTokens, PARAM_BOUNDS.maxTokens.min, PARAM_BOUNDS.maxTokens.max),
-    topP: clamp(raw.topP, PARAM_BOUNDS.topP.min, PARAM_BOUNDS.topP.max),
+    temperature: clamp(
+      raw.temperature,
+      PARAM_BOUNDS.temperature.min,
+      PARAM_BOUNDS.temperature.max
+    ),
+    maxTokens: clamp(
+      raw.maxTokens,
+      PARAM_BOUNDS.maxTokens.min,
+      PARAM_BOUNDS.maxTokens.max
+    ),
+    topP: clamp(
+      raw.topP,
+      PARAM_BOUNDS.topP.min,
+      PARAM_BOUNDS.topP.max
+    ),
   };
-}
-
-/**
- * Converts the app's chat history into Gemini's `contents` shape. Any
- * `system` messages are pulled out and joined into a single system
- * instruction, since Gemini doesn't accept a `system` role inside `contents`.
- */
-function toGeminiRequest(history: Pick<Message, 'role' | 'content'>[]): {
+}function toGeminiRequest(history: Pick<Message, 'role' | 'content'>[]): {
   contents: GeminiContent[];
   systemInstruction?: string;
 } {
@@ -70,6 +79,7 @@ function toGeminiRequest(history: Pick<Message, 'role' | 'content'>[]): {
       systemParts.push(message.content);
       continue;
     }
+
     contents.push({
       role: message.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: message.content }],
@@ -82,6 +92,118 @@ function toGeminiRequest(history: Pick<Message, 'role' | 'content'>[]): {
   };
 }
 
+export interface ExtractedMemory {
+  content: string;
+  category: string;
+}
+
+export async function extractMemoriesFromMessage(
+  userMessage: string
+): Promise<ExtractedMemory[]> {
+  if (!apiKey || !userMessage.trim()) {
+    return [];
+  }
+
+  const prompt = `
+You are the memory manager for an AI assistant.
+
+Analyse the user's message and extract ONLY durable information that could
+genuinely help the assistant in future conversations.
+
+Good memories include:
+- long-term preferences
+- ongoing projects
+- recurring interests
+- communication preferences
+- important non-sensitive facts the user explicitly wants remembered
+
+Do NOT save:
+- greetings
+- jokes
+- temporary situations
+- one-off questions
+- random conversation
+- passwords, API keys, secrets, or authentication information
+- highly sensitive personal information unless the user explicitly asks
+  for it to be remembered
+
+If nothing is worth remembering, return:
+
+{"memories":[]}
+
+Otherwise return ONLY valid JSON in this exact format:
+
+{
+  "memories": [
+    {
+      "content": "User prefers British English.",
+      "category": "preference"
+    }
+  ]
+}
+
+Useful categories:
+preference
+project
+interest
+communication
+general
+
+User message:
+${JSON.stringify(userMessage)}
+`;
+
+  try {
+    const response = await genAI.models.generateContent({
+      model: DEFAULT_MODEL,
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: prompt }],
+        },
+      ],
+      config: {
+        temperature: 0.1,
+        responseMimeType: 'application/json',
+      },
+    });
+
+    const text = response.text?.trim();
+
+    if (!text) {
+      return [];
+    }
+
+    const parsed = JSON.parse(text) as {
+      memories?: Array<{
+        content?: unknown;
+        category?: unknown;
+      }>;
+    };
+
+    if (!Array.isArray(parsed.memories)) {
+      return [];
+    }
+
+    return parsed.memories
+      .filter(
+        (memory) =>
+          typeof memory.content === 'string' &&
+          memory.content.trim().length > 0
+      )
+      .map((memory) => ({
+        content: String(memory.content).trim(),
+        category:
+          typeof memory.category === 'string'
+            ? memory.category.trim()
+            : 'general',
+      }))
+      .slice(0, 5);
+  } catch (err) {
+    logger.warn('Memory extraction failed', err);
+    return [];
+  }
+}
 async function checkGeminiHealth(): Promise<{ reachable: boolean; models: string[] }> {
   if (!apiKey) {
     return { reachable: false, models: [] };
