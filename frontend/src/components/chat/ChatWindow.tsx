@@ -1,16 +1,22 @@
 import { useEffect, useState } from 'react';
 import { Menu, Settings2 } from 'lucide-react';
+
 import { useChat } from '@/hooks/useChat';
 import { useConversations } from '@/context/ConversationContext';
 import { useToast } from '@/context/ToastContext';
+
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
 import { EmptyState } from './EmptyState';
+
 import { IconButton } from '@/components/common/IconButton';
 import { ConversationSettingsModal } from '@/components/settings/ConversationSettingsModal';
+
 import { generateImage } from '@/api/actionsApi';
-import type { Message } from '@/types';
+import { researchTopic } from '@/api/researchApi';
 import { addMemory } from '@/api/settingsApi';
+
+import type { Message } from '@/types';
 
 interface ChatWindowProps {
   conversationId: string | null;
@@ -26,7 +32,6 @@ export function ChatWindow({
     createNewConversation,
     selectConversation,
   } = useConversations();
-
 
   const { showToast } = useToast();
 
@@ -59,11 +64,13 @@ export function ChatWindow({
     }
   }, [streamError, showToast]);
 
-
-
   const handleSuggestion = (text: string) => {
     send(text);
   };
+
+  // ==========================
+  // IMAGE ACTION
+  // ==========================
 
   const runImageAction = async (
     originalContent: string,
@@ -139,46 +146,155 @@ export function ChatWindow({
     }
   };
 
-  const handleSend = (content: string) => {
-    const rememberMatch = content.match(
-  /^\/atlas\s+remember\s+(.+)$/i
-);
+  // ==========================
+  // RESEARCH ACTION
+  // ==========================
 
-if (rememberMatch) {
-  const memory = rememberMatch[1].trim();
+  const runResearchAction = async (
+    originalContent: string,
+    query: string
+  ) => {
+    if (!conversationId || isRunningAction) return;
 
-  if (!memory) return;
+    const userMessage: Message = {
+      id: crypto.randomUUID(),
+      conversationId,
+      role: 'user',
+      content: originalContent,
+      createdAt: new Date().toISOString(),
+    };
 
-  void (async () => {
+    const assistantId = crypto.randomUUID();
+
+    const researchingMessage: Message = {
+      id: assistantId,
+      conversationId,
+      role: 'assistant',
+      content: 'Researching the web…',
+      createdAt: new Date().toISOString(),
+    };
+
+    setActionMessages((current) => [
+      ...current,
+      userMessage,
+      researchingMessage,
+    ]);
+
+    setIsRunningAction(true);
+
     try {
-      await addMemory(memory, 'general');
-      showToast('Saved to Atlas memory.', 'success');
+      const result = await researchTopic(query);
+
+      let content = result.answer;
+
+      if (result.sources.length > 0) {
+        content += '\n\n### Sources\n';
+
+        result.sources.forEach((source, index) => {
+          content += `\n${index + 1}. [${source.title}](${source.url})`;
+        });
+      }
+
+      setActionMessages((current) =>
+        current.map((message) =>
+          message.id === assistantId
+            ? {
+                ...message,
+                content,
+              }
+            : message
+        )
+      );
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
-          : 'Could not save memory.';
+          : 'Research failed.';
+
+      setActionMessages((current) =>
+        current.map((item) =>
+          item.id === assistantId
+            ? {
+                ...item,
+                content: '',
+                error: message,
+              }
+            : item
+        )
+      );
 
       showToast(message, 'error');
+    } finally {
+      setIsRunningAction(false);
     }
-  })();
+  };
 
-  return;
-}
+  // ==========================
+  // SEND / ATLAS ACTION ROUTER
+  // ==========================
+
+  const handleSend = (content: string) => {
+    // Remember
+    const rememberMatch = content.match(
+      /^\/atlas\s+remember\s+(.+)$/i
+    );
+
+    if (rememberMatch) {
+      const memory = rememberMatch[1].trim();
+
+      if (!memory) return;
+
+      void (async () => {
+        try {
+          await addMemory(memory, 'general');
+
+          showToast(
+            'Saved to Atlas memory.',
+            'success'
+          );
+        } catch (error) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : 'Could not save memory.';
+
+          showToast(message, 'error');
+        }
+      })();
+
+      return;
+    }
+
+    // Image
     const imageMatch = content.match(
       /^\/atlas\s+image\s+(.+)$/i
     );
 
-    if (!imageMatch) {
-      send(content);
+    if (imageMatch) {
+      const prompt = imageMatch[1].trim();
+
+      if (!prompt || !conversationId) return;
+
+      void runImageAction(content, prompt);
       return;
     }
 
-    const prompt = imageMatch[1].trim();
+    // Research
+    const researchMatch = content.match(
+      /^\/atlas\s+research\s+(.+)$/i
+    );
 
-    if (!prompt || !conversationId) return;
+    if (researchMatch) {
+      const query = researchMatch[1].trim();
 
-    void runImageAction(content, prompt);
+      if (!query || !conversationId) return;
+
+      void runResearchAction(content, query);
+      return;
+    }
+
+    // Normal Atlas chat
+    send(content);
   };
 
   const handleNewChat = async () => {
@@ -287,10 +403,12 @@ if (rememberMatch) {
       )}
 
       <MessageInput
-  onSend={handleSend}
-  onStop={stop}
-  isStreaming={isStreaming || isRunningAction}
-/>
+        onSend={handleSend}
+        onStop={stop}
+        isStreaming={
+          isStreaming || isRunningAction
+        }
+      />
 
       <ConversationSettingsModal
         open={conversationSettingsOpen}

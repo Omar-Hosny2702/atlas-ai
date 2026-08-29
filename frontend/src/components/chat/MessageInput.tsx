@@ -48,7 +48,7 @@ const COMMANDS: AtlasCommand[] = [
     label: 'Research',
     description: 'Research a topic in depth',
     prefix: '/atlas research ',
-    available: false,
+    available: true,
     icon: Search,
   },
   {
