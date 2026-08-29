@@ -7,6 +7,7 @@ import { getDatabase } from './db/database.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { logger } from './utils/logger.js';
+import attachmentRoutes from './routes/attachmentRoutes.js';
 
 import chatRoutes from './routes/chatRoutes.js';
 import conversationRoutes from './routes/conversationRoutes.js';
@@ -64,6 +65,10 @@ app.use('/api/conversations', conversationRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/actions', actionRoutes);
+app.use(
+  '/api/attachments',
+  attachmentRoutes
+);
 
 // Lightweight root status endpoint to satisfy platform health checks
 app.get('/', (req, res) => {

@@ -1,36 +1,115 @@
-import { useEffect, useState } from 'react';
 import {
+  useEffect,
+  useState,
+} from 'react';
+
+import {
+  File,
+  Image as ImageIcon,
+  Loader2,
   Menu,
   Settings2,
   Sparkles,
+  X,
 } from 'lucide-react';
 
 import { useChat } from '@/hooks/useChat';
-import { useConversations } from '@/context/ConversationContext';
-import { useToast } from '@/context/ToastContext';
+
+import {
+  useConversations,
+} from '@/context/ConversationContext';
+
+import {
+  useToast,
+} from '@/context/ToastContext';
 
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
 
-import { IconButton } from '@/components/common/IconButton';
-import { Logo } from '@/components/common/Logo';
-import { ConversationSettingsModal } from '@/components/settings/ConversationSettingsModal';
+import {
+  IconButton,
+} from '@/components/common/IconButton';
 
-import { generateImage } from '@/api/actionsApi';
-import { researchTopic } from '@/api/researchApi';
+import {
+  Logo,
+} from '@/components/common/Logo';
+
+import {
+  ConversationSettingsModal,
+} from '@/components/settings/ConversationSettingsModal';
+
+import {
+  generateImage,
+} from '@/api/actionsApi';
+
+import {
+  researchTopic,
+} from '@/api/researchApi';
 
 import {
   explainTopic,
   planGoal,
 } from '@/api/textActionsApi';
 
-import { addMemory } from '@/api/settingsApi';
+import {
+  addMemory,
+} from '@/api/settingsApi';
 
-import type { Message } from '@/types';
+import {
+  uploadAttachment,
+  type AttachmentKind,
+} from '@/api/attachmentsApi';
+
+import type {
+  Message,
+} from '@/types';
 
 interface ChatWindowProps {
   conversationId: string | null;
   onOpenSidebar: () => void;
+}
+
+interface PendingAttachment {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  kind: AttachmentKind;
+  url: string;
+  pathname: string;
+}
+
+interface UploadProgressState {
+  fileName: string;
+  percentage: number;
+  kind: AttachmentKind;
+}
+
+const MAX_ATTACHMENT_SIZE =
+  20 * 1024 * 1024;
+
+function formatFileSize(
+  bytes: number
+): string {
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+
+  const kilobytes =
+    bytes / 1024;
+
+  if (kilobytes < 1024) {
+    return `${kilobytes.toFixed(
+      kilobytes >= 100 ? 0 : 1
+    )} KB`;
+  }
+
+  const megabytes =
+    kilobytes / 1024;
+
+  return `${megabytes.toFixed(
+    megabytes >= 10 ? 1 : 2
+  )} MB`;
 }
 
 export function ChatWindow({
@@ -43,20 +122,37 @@ export function ChatWindow({
     selectConversation,
   } = useConversations();
 
-  const { showToast } = useToast();
+  const { showToast } =
+    useToast();
 
   const [
     conversationSettingsOpen,
     setConversationSettingsOpen,
   ] = useState(false);
 
-  const [actionMessages, setActionMessages] =
-    useState<Message[]>([]);
+  const [
+    actionMessages,
+    setActionMessages,
+  ] = useState<Message[]>([]);
 
   const [
     isRunningAction,
     setIsRunningAction,
   ] = useState(false);
+
+  const [
+    pendingAttachments,
+    setPendingAttachments,
+  ] = useState<
+    PendingAttachment[]
+  >([]);
+
+  const [
+    uploadProgress,
+    setUploadProgress,
+  ] = useState<
+    UploadProgressState | null
+  >(null);
 
   const {
     conversation,
@@ -76,6 +172,8 @@ export function ChatWindow({
 
   useEffect(() => {
     setActionMessages([]);
+    setPendingAttachments([]);
+    setUploadProgress(null);
   }, [conversationId]);
 
   useEffect(() => {
@@ -102,7 +200,8 @@ export function ChatWindow({
       id: crypto.randomUUID(),
       conversationId,
       role: 'user',
-      content: originalContent,
+      content:
+        originalContent,
       createdAt:
         new Date().toISOString(),
     };
@@ -110,14 +209,15 @@ export function ChatWindow({
     const assistantId =
       crypto.randomUUID();
 
-    const assistantMessage: Message = {
-      id: assistantId,
-      conversationId,
-      role: 'assistant',
-      content: loadingText,
-      createdAt:
-        new Date().toISOString(),
-    };
+    const assistantMessage:
+      Message = {
+        id: assistantId,
+        conversationId,
+        role: 'assistant',
+        content: loadingText,
+        createdAt:
+          new Date().toISOString(),
+      };
 
     setActionMessages(
       (current) => [
@@ -144,7 +244,8 @@ export function ChatWindow({
       (current) =>
         current.map(
           (item) =>
-            item.id === assistantId
+            item.id ===
+            assistantId
               ? {
                   ...item,
                   content: '',
@@ -160,62 +261,68 @@ export function ChatWindow({
     );
   };
 
-  const runImageAction = async (
-    originalContent: string,
-    prompt: string
-  ) => {
-    if (
-      !conversationId ||
-      isRunningAction
-    ) {
-      return;
-    }
+  const runImageAction =
+    async (
+      originalContent: string,
+      prompt: string
+    ) => {
+      if (
+        !conversationId ||
+        isRunningAction
+      ) {
+        return;
+      }
 
-    const assistantId =
-      createActionMessages(
-        originalContent,
-        'Generating image…'
-      );
-
-    if (!assistantId) return;
-
-    setIsRunningAction(true);
-
-    try {
-      const result =
-        await generateImage(
-          prompt
+      const assistantId =
+        createActionMessages(
+          originalContent,
+          'Generating image…'
         );
 
-      setActionMessages(
-        (current) =>
-          current.map(
-            (message) =>
-              message.id === assistantId
-                ? {
-                    ...message,
-                    content: '',
-                    image: {
-                      mimeType:
-                        result.mimeType,
-                      data:
-                        result.data,
-                      alt: prompt,
-                    },
-                  }
-                : message
-          )
-      );
-    } catch (error) {
-      setActionError(
-        assistantId,
-        error,
-        'Image generation failed.'
-      );
-    } finally {
-      setIsRunningAction(false);
-    }
-  };
+      if (!assistantId) {
+        return;
+      }
+
+      setIsRunningAction(true);
+
+      try {
+        const result =
+          await generateImage(
+            prompt
+          );
+
+        setActionMessages(
+          (current) =>
+            current.map(
+              (message) =>
+                message.id ===
+                assistantId
+                  ? {
+                      ...message,
+                      content: '',
+                      image: {
+                        mimeType:
+                          result.mimeType,
+                        data:
+                          result.data,
+                        alt: prompt,
+                      },
+                    }
+                  : message
+            )
+        );
+      } catch (error) {
+        setActionError(
+          assistantId,
+          error,
+          'Image generation failed.'
+        );
+      } finally {
+        setIsRunningAction(
+          false
+        );
+      }
+    };
 
   const runResearchAction =
     async (
@@ -235,7 +342,9 @@ export function ChatWindow({
           'Searching the web and analysing sources…'
         );
 
-      if (!assistantId) return;
+      if (!assistantId) {
+        return;
+      }
 
       setIsRunningAction(true);
 
@@ -256,7 +365,9 @@ export function ChatWindow({
           'Research failed.'
         );
       } finally {
-        setIsRunningAction(false);
+        setIsRunningAction(
+          false
+        );
       }
     };
 
@@ -278,7 +389,9 @@ export function ChatWindow({
           'Building a clear explanation…'
         );
 
-      if (!assistantId) return;
+      if (!assistantId) {
+        return;
+      }
 
       setIsRunningAction(true);
 
@@ -299,51 +412,58 @@ export function ChatWindow({
           'Explanation failed.'
         );
       } finally {
-        setIsRunningAction(false);
+        setIsRunningAction(
+          false
+        );
       }
     };
 
-  const runPlanAction = async (
-    originalContent: string,
-    goal: string
-  ) => {
-    if (
-      !conversationId ||
-      isRunningAction
-    ) {
-      return;
-    }
+  const runPlanAction =
+    async (
+      originalContent: string,
+      goal: string
+    ) => {
+      if (
+        !conversationId ||
+        isRunningAction
+      ) {
+        return;
+      }
 
-    const assistantId =
-      createActionMessages(
-        originalContent,
-        'Building your plan…'
-      );
+      const assistantId =
+        createActionMessages(
+          originalContent,
+          'Building your plan…'
+        );
 
-    if (!assistantId) return;
+      if (!assistantId) {
+        return;
+      }
 
-    setIsRunningAction(true);
+      setIsRunningAction(true);
 
-    try {
-      await planGoal(
-        goal,
-        conversationId
-      );
+      try {
+        await planGoal(
+          goal,
+          conversationId
+        );
 
-      await reload();
-      await refreshList();
+        await reload();
+        await refreshList();
 
-      setActionMessages([]);
-    } catch (error) {
-      setActionError(
-        assistantId,
-        error,
-        'Planning failed.'
-      );
-    } finally {
-      setIsRunningAction(false);
-    }
-  };
+        setActionMessages([]);
+      } catch (error) {
+        setActionError(
+          assistantId,
+          error,
+          'Planning failed.'
+        );
+      } finally {
+        setIsRunningAction(
+          false
+        );
+      }
+    };
 
   const runRememberAction =
     async (
@@ -363,7 +483,9 @@ export function ChatWindow({
           'Saving to memory…'
         );
 
-      if (!assistantId) return;
+      if (!assistantId) {
+        return;
+      }
 
       setIsRunningAction(true);
 
@@ -377,7 +499,8 @@ export function ChatWindow({
           (current) =>
             current.map(
               (message) =>
-                message.id === assistantId
+                message.id ===
+                assistantId
                   ? {
                       ...message,
                       content: `✓ Saved to memory: **${memory}**`,
@@ -397,100 +520,215 @@ export function ChatWindow({
           'Could not save memory.'
         );
       } finally {
-        setIsRunningAction(false);
+        setIsRunningAction(
+          false
+        );
       }
     };
 
-  const handleAttachImage = (
-    file: File
-  ) => {
-    if (
-      !file.type.startsWith(
-        'image/'
-      )
-    ) {
-      showToast(
-        'Please choose an image file.',
-        'error'
+  const uploadSelectedFile =
+    async (
+      file: File,
+      kind: AttachmentKind
+    ) => {
+      if (!conversationId) {
+        showToast(
+          'Open a conversation before adding an attachment.',
+          'error'
+        );
+
+        return;
+      }
+
+      if (uploadProgress) {
+        showToast(
+          'Wait for the current upload to finish.',
+          'error'
+        );
+
+        return;
+      }
+
+      if (
+        file.size >
+        MAX_ATTACHMENT_SIZE
+      ) {
+        showToast(
+          'Files must be 20 MB or smaller.',
+          'error'
+        );
+
+        return;
+      }
+
+      if (file.size <= 0) {
+        showToast(
+          'That file is empty.',
+          'error'
+        );
+
+        return;
+      }
+
+      setUploadProgress({
+        fileName: file.name,
+        percentage: 0,
+        kind,
+      });
+
+      try {
+        const uploaded =
+          await uploadAttachment({
+            file,
+            conversationId,
+            kind,
+
+            onProgress:
+              (percentage) => {
+                setUploadProgress(
+                  (current) =>
+                    current
+                      ? {
+                          ...current,
+                          percentage:
+                            Math.max(
+                              0,
+                              Math.min(
+                                100,
+                                percentage
+                              )
+                            ),
+                        }
+                      : current
+                );
+              },
+          });
+
+        const attachment:
+          PendingAttachment = {
+            id: crypto.randomUUID(),
+            fileName:
+              file.name,
+            mimeType:
+              file.type ||
+              uploaded.contentType ||
+              'application/octet-stream',
+            sizeBytes:
+              file.size,
+            kind,
+            url: uploaded.url,
+            pathname:
+              uploaded.pathname,
+          };
+
+        setPendingAttachments(
+          (current) => [
+            ...current,
+            attachment,
+          ]
+        );
+
+        showToast(
+          `${file.name} uploaded.`,
+          'success'
+        );
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Attachment upload failed.';
+
+        showToast(
+          message,
+          'error'
+        );
+      } finally {
+        setUploadProgress(null);
+      }
+    };
+
+  const handleAttachImage =
+    async (file: File) => {
+      const allowedImageTypes =
+        new Set([
+          'image/jpeg',
+          'image/png',
+          'image/webp',
+          'image/gif',
+        ]);
+
+      if (
+        !allowedImageTypes.has(
+          file.type
+        )
+      ) {
+        showToast(
+          'Please choose a PNG, JPEG, WebP, or GIF image.',
+          'error'
+        );
+
+        return;
+      }
+
+      await uploadSelectedFile(
+        file,
+        'image'
       );
+    };
 
-      return;
-    }
-
-    const maxSize =
-      10 * 1024 * 1024;
-
-    if (file.size > maxSize) {
-      showToast(
-        'Image must be 10 MB or smaller.',
-        'error'
+  const handleAttachFile =
+    async (file: File) => {
+      await uploadSelectedFile(
+        file,
+        'file'
       );
+    };
 
-      return;
-    }
-
-    showToast(
-      `${file.name} selected. Image sending is the next backend step.`,
-      'success'
-    );
-  };
-
-  const handleAttachFile = (
-    file: File
-  ) => {
-    const maxSize =
-      20 * 1024 * 1024;
-
-    if (file.size > maxSize) {
-      showToast(
-        'File must be 20 MB or smaller.',
-        'error'
+  const handleRemoveAttachment =
+    (id: string) => {
+      setPendingAttachments(
+        (current) =>
+          current.filter(
+            (attachment) =>
+              attachment.id !== id
+          )
       );
+    };
 
-      return;
-    }
+  const handleImport =
+    async (file: File) => {
+      if (
+        file.type !==
+          'application/json' &&
+        !file.name
+          .toLowerCase()
+          .endsWith('.json')
+      ) {
+        showToast(
+          'Import currently accepts JSON files only.',
+          'error'
+        );
 
-    showToast(
-      `${file.name} selected. File sending is the next backend step.`,
-      'success'
-    );
-  };
+        return;
+      }
 
-  const handleImport = async (
-    file: File
-  ) => {
-    if (
-      file.type !==
-        'application/json' &&
-      !file.name
-        .toLowerCase()
-        .endsWith('.json')
-    ) {
-      showToast(
-        'Import currently accepts JSON files only.',
-        'error'
-      );
+      try {
+        const text =
+          await file.text();
 
-      return;
-    }
+        JSON.parse(text);
 
-    try {
-      const text =
-        await file.text();
-
-      JSON.parse(text);
-
-      showToast(
-        `${file.name} is valid JSON. Import mapping is the next step.`,
-        'success'
-      );
-    } catch {
-      showToast(
-        'That file is not valid JSON.',
-        'error'
-      );
-    }
-  };
+        showToast(
+          `${file.name} is valid JSON. Import mapping is the next step.`,
+          'success'
+        );
+      } catch {
+        showToast(
+          'That file is not valid JSON.',
+          'error'
+        );
+      }
+    };
 
   const handleExport = () => {
     if (!conversation) {
@@ -518,15 +756,20 @@ export function ChatWindow({
         ),
       ],
       {
-        type: 'application/json',
+        type:
+          'application/json',
       }
     );
 
     const url =
-      URL.createObjectURL(blob);
+      URL.createObjectURL(
+        blob
+      );
 
     const anchor =
-      document.createElement('a');
+      document.createElement(
+        'a'
+      );
 
     const safeTitle =
       conversation.title
@@ -543,6 +786,7 @@ export function ChatWindow({
       'atlas-chat';
 
     anchor.href = url;
+
     anchor.download =
       `${safeTitle}.json`;
 
@@ -553,7 +797,9 @@ export function ChatWindow({
     anchor.click();
     anchor.remove();
 
-    URL.revokeObjectURL(url);
+    URL.revokeObjectURL(
+      url
+    );
 
     showToast(
       'Conversation exported.',
@@ -684,6 +930,14 @@ export function ChatWindow({
       return;
     }
 
+    /*
+     * For now normal text sending stays exactly
+     * as it was.
+     *
+     * The uploaded attachments remain selected
+     * until we wire their IDs into message
+     * metadata in the next step.
+     */
     send(content);
   };
 
@@ -741,27 +995,33 @@ export function ChatWindow({
                 dark:bg-white/[0.05]
               "
             >
-              <Logo size={40} />
+              <Logo
+                size={40}
+              />
             </div>
 
             <h1
               className="
-                font-display text-3xl
-                font-semibold tracking-tight
+                font-display
+                text-3xl
+                font-semibold
+                tracking-tight
                 text-ink
                 dark:text-paper
                 sm:text-4xl
               "
             >
-              Hi Omar, what&apos;s
-              the plan?
+              Hi Omar,
+              what&apos;s the
+              plan?
             </h1>
 
             <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-light dark:text-muted-dark">
-              Ask Atlas anything,
-              research a topic,
-              create an image, or
-              start with an Atlas
+              Ask Atlas
+              anything, research
+              a topic, create an
+              image, or start
+              with an Atlas
               Action.
             </p>
 
@@ -774,10 +1034,12 @@ export function ChatWindow({
                 mt-7 inline-flex
                 items-center gap-2
                 rounded-full
-                border border-black/10
+                border
+                border-black/10
                 bg-white
                 px-4 py-2.5
-                text-sm font-medium
+                text-sm
+                font-medium
                 text-ink
                 shadow-sm
                 transition
@@ -792,6 +1054,7 @@ export function ChatWindow({
                 size={16}
                 className="text-accent-500"
               />
+
               Start a new chat
             </button>
           </div>
@@ -818,7 +1081,8 @@ export function ChatWindow({
   const hasMessages =
     visibleMessages.filter(
       (message) =>
-        message.role !== 'system'
+        message.role !==
+        'system'
     ).length > 0;
 
   return (
@@ -844,7 +1108,9 @@ export function ChatWindow({
             }
             className="md:hidden"
           >
-            <Menu size={18} />
+            <Menu
+              size={18}
+            />
           </IconButton>
 
           <div className="min-w-0">
@@ -891,7 +1157,8 @@ export function ChatWindow({
               <div
                 className="
                   mb-5 flex h-16 w-16
-                  items-center justify-center
+                  items-center
+                  justify-center
                   rounded-2xl
                   border
                   border-black/[0.06]
@@ -901,13 +1168,17 @@ export function ChatWindow({
                   dark:bg-white/[0.05]
                 "
               >
-                <Logo size={40} />
+                <Logo
+                  size={40}
+                />
               </div>
 
               <h1
                 className="
-                  font-display text-3xl
-                  font-semibold tracking-tight
+                  font-display
+                  text-3xl
+                  font-semibold
+                  tracking-tight
                   text-ink
                   dark:text-paper
                   sm:text-4xl
@@ -921,9 +1192,11 @@ export function ChatWindow({
               <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-light dark:text-muted-dark">
                 Message Atlas
                 below or type
+
                 <span className="mx-1 font-medium text-ink dark:text-paper">
                   /
                 </span>
+
                 to use Atlas
                 Actions.
               </p>
@@ -946,29 +1219,276 @@ export function ChatWindow({
           </div>
         )}
 
-        <div className="shrink-0 pb-1">
-          <MessageInput
-            onSend={
-              handleSend
-            }
-            onStop={stop}
-            onAttachImage={
-              handleAttachImage
-            }
-            onAttachFile={
-              handleAttachFile
-            }
-            onImport={
-              handleImport
-            }
-            onExport={
-              handleExport
-            }
-            isStreaming={
-              isStreaming ||
-              isRunningAction
-            }
-          />
+        <div className="shrink-0">
+          <div className="mx-auto w-full max-w-3xl px-3 sm:px-4">
+            {uploadProgress && (
+              <div
+                className="
+                  mb-2
+                  overflow-hidden
+                  rounded-2xl
+                  border
+                  border-black/[0.08]
+                  bg-white
+                  p-3
+                  shadow-sm
+                  dark:border-white/10
+                  dark:bg-white/[0.05]
+                "
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className="
+                      flex h-10 w-10
+                      shrink-0
+                      items-center
+                      justify-center
+                      rounded-xl
+                      bg-black/[0.04]
+                      dark:bg-white/[0.06]
+                    "
+                  >
+                    {uploadProgress.kind ===
+                    'image' ? (
+                      <ImageIcon
+                        size={18}
+                      />
+                    ) : (
+                      <File
+                        size={18}
+                      />
+                    )}
+                  </div>
+
+                  <div className="min-w-0 grow">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="truncate text-xs font-medium text-ink dark:text-paper">
+                        {
+                          uploadProgress.fileName
+                        }
+                      </p>
+
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <Loader2
+                          size={13}
+                          className="animate-spin"
+                        />
+
+                        <span className="text-[11px] text-muted-light dark:text-muted-dark">
+                          {Math.round(
+                            uploadProgress.percentage
+                          )}
+                          %
+                        </span>
+                      </div>
+                    </div>
+
+                    <div
+                      className="
+                        mt-2 h-1.5
+                        overflow-hidden
+                        rounded-full
+                        bg-black/[0.06]
+                        dark:bg-white/[0.08]
+                      "
+                    >
+                      <div
+                        className="
+                          h-full
+                          rounded-full
+                          bg-accent-500
+                          transition-[width]
+                          duration-200
+                        "
+                        style={{
+                          width: `${uploadProgress.percentage}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {pendingAttachments.length >
+              0 && (
+              <div className="mb-2 flex gap-2 overflow-x-auto pb-1">
+                {pendingAttachments.map(
+                  (
+                    attachment
+                  ) => (
+                    <div
+                      key={
+                        attachment.id
+                      }
+                      className="
+                        relative
+                        shrink-0
+                        overflow-hidden
+                        rounded-2xl
+                        border
+                        border-black/[0.08]
+                        bg-white
+                        shadow-sm
+                        dark:border-white/10
+                        dark:bg-white/[0.05]
+                      "
+                    >
+                      {attachment.kind ===
+                      'image' ? (
+                        <div className="relative h-24 w-28">
+                          <img
+                            src={
+                              attachment.url
+                            }
+                            alt={
+                              attachment.fileName
+                            }
+                            className="h-full w-full object-cover"
+                          />
+
+                          <button
+                            type="button"
+                            aria-label={`Remove ${attachment.fileName}`}
+                            onClick={() =>
+                              handleRemoveAttachment(
+                                attachment.id
+                              )
+                            }
+                            className="
+                              absolute
+                              right-1.5
+                              top-1.5
+                              flex h-6
+                              w-6
+                              items-center
+                              justify-center
+                              rounded-full
+                              bg-black/65
+                              text-white
+                              backdrop-blur-sm
+                              transition
+                              hover:bg-black/80
+                            "
+                          >
+                            <X
+                              size={
+                                14
+                              }
+                            />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex h-20 w-56 items-center gap-3 p-3 pr-9">
+                          <div
+                            className="
+                              flex h-10
+                              w-10
+                              shrink-0
+                              items-center
+                              justify-center
+                              rounded-xl
+                              bg-black/[0.04]
+                              dark:bg-white/[0.06]
+                            "
+                          >
+                            <File
+                              size={
+                                18
+                              }
+                            />
+                          </div>
+
+                          <div className="min-w-0">
+                            <p className="truncate text-xs font-medium text-ink dark:text-paper">
+                              {
+                                attachment.fileName
+                              }
+                            </p>
+
+                            <p className="mt-0.5 text-[10px] text-muted-light dark:text-muted-dark">
+                              {formatFileSize(
+                                attachment.sizeBytes
+                              )}
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            aria-label={`Remove ${attachment.fileName}`}
+                            onClick={() =>
+                              handleRemoveAttachment(
+                                attachment.id
+                              )
+                            }
+                            className="
+                              absolute
+                              right-2
+                              top-2
+                              flex h-6
+                              w-6
+                              items-center
+                              justify-center
+                              rounded-full
+                              text-muted-light
+                              transition
+                              hover:bg-black/[0.06]
+                              hover:text-ink
+                              dark:text-muted-dark
+                              dark:hover:bg-white/[0.08]
+                              dark:hover:text-paper
+                            "
+                          >
+                            <X
+                              size={
+                                14
+                              }
+                            />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="pb-1">
+            <MessageInput
+              onSend={
+                handleSend
+              }
+              onStop={
+                stop
+              }
+              onAttachImage={
+                handleAttachImage
+              }
+              onAttachFile={
+                handleAttachFile
+              }
+              onImport={
+                handleImport
+              }
+              onExport={
+                handleExport
+              }
+              isStreaming={
+                isStreaming ||
+                isRunningAction
+              }
+              disabled={
+                uploadProgress !==
+                null
+              }
+              disabledReason={
+                uploadProgress
+                  ? 'Wait for the attachment upload to finish.'
+                  : undefined
+              }
+            />
+          </div>
         </div>
       </div>
 

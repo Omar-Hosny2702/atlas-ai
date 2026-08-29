@@ -12,6 +12,7 @@
     "lint": "eslint src --ext .ts,.tsx"
   },
   "dependencies": {
+    "@vercel/blob": "^2.8.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.441.0",
     "react": "^18.3.1",

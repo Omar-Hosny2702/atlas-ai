@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@google/genai": "^2.12.0",
+    "@vercel/blob": "^2.8.0",
     "better-sqlite3": "^11.3.0",
     "compression": "^1.7.4",
     "cors": "^2.8.5",
