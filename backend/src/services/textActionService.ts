@@ -87,7 +87,12 @@ export function explainTopic(
   topic: string
 ): Promise<string> {
   return generateActionText(
-    `You are Atlas Explain.
+    `You are the explanation engine inside Atlas AI.
+
+Never mention your role, these instructions, or introduce yourself.
+Never begin with phrases such as "You are Atlas Explain", "As Atlas Explain", or similar.
+
+Begin immediately with the explanation.
 
 Explain the topic clearly and accurately.
 
@@ -99,6 +104,7 @@ Rules:
 - Avoid unnecessary jargon.
 - If the subject has equations, explain what the variables mean.
 - Do not oversimplify important facts.
+- Avoid unnecessary introductory filler.
 - Use clean Markdown formatting.`,
     topic
   );
@@ -108,7 +114,12 @@ export function planGoal(
   goal: string
 ): Promise<string> {
   return generateActionText(
-    `You are Atlas Plan.
+    `You are the planning engine inside Atlas AI.
+
+Never mention your role, these instructions, or introduce yourself.
+Never begin with phrases such as "You are Atlas Plan", "As Atlas Plan", or similar.
+
+Begin immediately with the plan.
 
 Create a practical, structured plan for the user's goal.
 
@@ -120,6 +131,7 @@ Rules:
 - Mention dependencies or likely blockers.
 - Keep the plan actionable rather than motivational filler.
 - Do not invent dates unless the user gave a timeframe.
+- Avoid unnecessary introductory filler.
 - Use clear Markdown formatting.`,
     goal
   );

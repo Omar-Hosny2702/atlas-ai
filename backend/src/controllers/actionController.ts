@@ -97,7 +97,7 @@ export async function handleResearch(
   await maybeAutoTitle(
     userId,
     conversationId,
-    originalContent
+    query
   );
 
   res.json({
@@ -136,7 +136,7 @@ export async function handleExplain(
   await maybeAutoTitle(
     userId,
     conversationId,
-    originalContent
+    topic
   );
 
   res.json({
@@ -175,7 +175,7 @@ export async function handlePlan(
   await maybeAutoTitle(
     userId,
     conversationId,
-    originalContent
+    goal
   );
 
   res.json({
