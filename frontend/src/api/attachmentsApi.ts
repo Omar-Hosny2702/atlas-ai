@@ -67,7 +67,7 @@ export async function uploadAttachment({
     file.name,
     file,
     {
-      access: 'public',
+      access: 'private',
 
       handleUploadUrl:
         `${BASE_URL}/attachments/upload`,
