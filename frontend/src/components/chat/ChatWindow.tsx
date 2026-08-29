@@ -170,7 +170,7 @@ export function ChatWindow({
       id: assistantId,
       conversationId,
       role: 'assistant',
-      content: 'Researching the web…',
+      content: 'Searching the web and analysing sources…',
       createdAt: new Date().toISOString(),
     };
 
@@ -185,26 +185,20 @@ export function ChatWindow({
     try {
       const result = await researchTopic(query);
 
-      let content = result.answer;
-
-      if (result.sources.length > 0) {
-        content += '\n\n### Sources\n';
-
-        result.sources.forEach((source, index) => {
-          content += `\n${index + 1}. [${source.title}](${source.url})`;
-        });
-      }
-
       setActionMessages((current) =>
-        current.map((message) =>
-          message.id === assistantId
-            ? {
-                ...message,
-                content,
-              }
-            : message
-        )
-      );
+  current.map((message) =>
+    message.id === assistantId
+      ? {
+          ...message,
+          content: result.answer,
+          research: {
+            sources: result.sources,
+            searchQueries: result.searchQueries,
+          },
+        }
+      : message
+  )
+);
     } catch (error) {
       const message =
         error instanceof Error

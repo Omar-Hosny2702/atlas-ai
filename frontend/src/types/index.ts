@@ -8,21 +8,20 @@ export interface Message {
   createdAt: string;
   stopped?: boolean;
   error?: string | null;
+
   image?: {
     mimeType: string;
     data: string;
     alt?: string;
   };
-}
 
-export interface Message {
-  id: string;
-  conversationId: string;
-  role: MessageRole;
-  content: string;
-  createdAt: string;
-  stopped?: boolean;
-  error?: string | null;
+  research?: {
+    sources: {
+      title: string;
+      url: string;
+    }[];
+    searchQueries?: string[];
+  };
 }
 
 export interface Conversation {
