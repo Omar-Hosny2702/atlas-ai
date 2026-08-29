@@ -29,6 +29,7 @@ const ALLOWED_IMAGE_TYPES = [
 ];
 
 interface UploadTicket {
+  attachmentId: string;
   userId: string;
   conversationId: string;
   fileName: string;
@@ -38,12 +39,17 @@ interface UploadTicket {
   expiresAt: number;
 }
 
-function encode(value: string): string {
-  return Buffer.from(value)
-    .toString('base64url');
+function encode(
+  value: string
+): string {
+  return Buffer.from(
+    value
+  ).toString('base64url');
 }
 
-function decode(value: string): string {
+function decode(
+  value: string
+): string {
   return Buffer.from(
     value,
     'base64url'
@@ -53,7 +59,9 @@ function decode(value: string): string {
 function signTicket(
   payload: UploadTicket
 ): string {
-  if (!config.attachmentUploadSecret) {
+  if (
+    !config.attachmentUploadSecret
+  ) {
     throw new AppError(
       'Attachment uploads are not configured.',
       500
@@ -78,17 +86,24 @@ function signTicket(
 function verifyTicket(
   ticket: string
 ): UploadTicket {
-  if (!config.attachmentUploadSecret) {
+  if (
+    !config.attachmentUploadSecret
+  ) {
     throw new AppError(
       'Attachment uploads are not configured.',
       500
     );
   }
 
-  const [encoded, signature] =
-    ticket.split('.');
+  const [
+    encoded,
+    signature,
+  ] = ticket.split('.');
 
-  if (!encoded || !signature) {
+  if (
+    !encoded ||
+    !signature
+  ) {
     throw new AppError(
       'Invalid upload ticket.',
       401
@@ -131,7 +146,8 @@ function verifyTicket(
     );
   }
 
-  let payload: UploadTicket;
+  let payload:
+    UploadTicket;
 
   try {
     payload = JSON.parse(
@@ -145,6 +161,7 @@ function verifyTicket(
   }
 
   if (
+    !payload.attachmentId ||
     !payload.userId ||
     !payload.conversationId ||
     !payload.fileName ||
@@ -158,7 +175,10 @@ function verifyTicket(
     );
   }
 
-  if (payload.expiresAt <= Date.now()) {
+  if (
+    payload.expiresAt <=
+    Date.now()
+  ) {
     throw new AppError(
       'Upload ticket has expired.',
       401
@@ -172,10 +192,13 @@ async function ensureConversationOwnership(
   userId: string,
   conversationId: string
 ): Promise<void> {
-  const sql = await getDatabase();
+  const sql =
+    await getDatabase();
 
   const rows =
-    await sql<{ id: string }[]>`
+    await sql<
+      { id: string }[]
+    >`
       SELECT id
       FROM conversations
       WHERE id = ${conversationId}
@@ -196,14 +219,21 @@ function validateFile(
   mimeType: unknown,
   sizeBytes: unknown,
   kind: unknown
-): asserts kind is 'image' | 'file' {
+): asserts kind is
+  | 'image'
+  | 'file' {
   if (
-    typeof fileName !== 'string' ||
+    typeof fileName !==
+      'string' ||
     !fileName.trim() ||
-    typeof mimeType !== 'string' ||
+    typeof mimeType !==
+      'string' ||
     !mimeType.trim() ||
-    typeof sizeBytes !== 'number' ||
-    !Number.isFinite(sizeBytes)
+    typeof sizeBytes !==
+      'number' ||
+    !Number.isFinite(
+      sizeBytes
+    )
   ) {
     throw new AppError(
       'Invalid attachment.',
@@ -223,7 +253,8 @@ function validateFile(
 
   if (
     sizeBytes <= 0 ||
-    sizeBytes > MAX_FILE_SIZE
+    sizeBytes >
+      MAX_FILE_SIZE
   ) {
     throw new AppError(
       'Files must be 20 MB or smaller.',
@@ -290,19 +321,56 @@ export async function handleCreateUploadTicket(
       conversationId
     );
 
-    const ticket = signTicket({
-  userId,
-  conversationId,
-  fileName: fileName as string,
-  mimeType: mimeType as string,
-  sizeBytes: sizeBytes as number,
-  kind,
-  expiresAt:
-    Date.now() +
-    TICKET_LIFETIME_MS,
-});
+    const attachmentId =
+      crypto.randomUUID();
+
+    const sql =
+      await getDatabase();
+
+    await sql`
+      INSERT INTO attachments (
+        id,
+        user_id,
+        conversation_id,
+        file_name,
+        mime_type,
+        size_bytes,
+        kind,
+        storage_provider,
+        status
+      )
+      VALUES (
+        ${attachmentId},
+        ${userId},
+        ${conversationId},
+        ${fileName as string},
+        ${mimeType as string},
+        ${sizeBytes as number},
+        ${kind},
+        'vercel-blob',
+        'pending'
+      )
+    `;
+
+    const ticket =
+      signTicket({
+        attachmentId,
+        userId,
+        conversationId,
+        fileName:
+          fileName as string,
+        mimeType:
+          mimeType as string,
+        sizeBytes:
+          sizeBytes as number,
+        kind,
+        expiresAt:
+          Date.now() +
+          TICKET_LIFETIME_MS,
+      });
 
     res.json({
+      attachmentId,
       ticket,
       expiresIn: 300,
     });
@@ -317,104 +385,136 @@ export async function handleAttachmentUpload(
   next: NextFunction
 ): Promise<void> {
   try {
-    const result = await handleUpload({
-      body:
-        req.body as HandleUploadBody,
+    const result =
+      await handleUpload({
+        body:
+          req.body as HandleUploadBody,
 
-      request: req,
+        request: req,
 
-      onBeforeGenerateToken:
-        async (
-          _pathname,
-          clientPayload
-        ) => {
-          if (!clientPayload) {
-            throw new AppError(
-              'Upload ticket is required.',
-              401
+        onBeforeGenerateToken:
+          async (
+            _pathname,
+            clientPayload
+          ) => {
+            if (
+              !clientPayload
+            ) {
+              throw new AppError(
+                'Upload ticket is required.',
+                401
+              );
+            }
+
+            const payload =
+              verifyTicket(
+                clientPayload
+              );
+
+            await ensureConversationOwnership(
+              payload.userId,
+              payload.conversationId
             );
-          }
 
-          const payload =
-            verifyTicket(
-              clientPayload
-            );
+            const sql =
+              await getDatabase();
 
-          await ensureConversationOwnership(
-            payload.userId,
-            payload.conversationId
-          );
+            const rows =
+              await sql<
+                {
+                  id: string;
+                  status: string;
+                }[]
+              >`
+                SELECT
+                  id,
+                  status
+                FROM attachments
+                WHERE id =
+                    ${payload.attachmentId}
+                  AND user_id =
+                    ${payload.userId}
+                  AND conversation_id =
+                    ${payload.conversationId}
+                LIMIT 1
+              `;
 
-          return {
-            allowedContentTypes:
-              payload.kind === 'image'
-                ? ALLOWED_IMAGE_TYPES
-                : undefined,
+            if (!rows[0]) {
+              throw new AppError(
+                'Attachment not found.',
+                404
+              );
+            }
 
-            maximumSizeInBytes:
-              MAX_FILE_SIZE,
+            return {
+              allowedContentTypes:
+                payload.kind ===
+                'image'
+                  ? ALLOWED_IMAGE_TYPES
+                  : undefined,
 
-            addRandomSuffix: true,
+              maximumSizeInBytes:
+                MAX_FILE_SIZE,
 
-            tokenPayload:
-              JSON.stringify(payload),
-          };
-        },
+              addRandomSuffix:
+                true,
 
-      onUploadCompleted:
-        async ({
-          blob,
-          tokenPayload,
-        }) => {
-          if (!tokenPayload) {
-            throw new Error(
-              'Missing attachment metadata.'
-            );
-          }
+              tokenPayload:
+                JSON.stringify(
+                  payload
+                ),
+            };
+          },
 
-          const payload =
-            JSON.parse(
-              tokenPayload
-            ) as UploadTicket;
+        onUploadCompleted:
+          async ({
+            blob,
+            tokenPayload,
+          }) => {
+            if (
+              !tokenPayload
+            ) {
+              throw new Error(
+                'Missing attachment metadata.'
+              );
+            }
 
-          /*
-           * The ticket was already verified before
-           * Vercel issued the Blob upload token.
-           */
+            const payload =
+              JSON.parse(
+                tokenPayload
+              ) as UploadTicket;
 
-          const sql =
-            await getDatabase();
+            const sql =
+              await getDatabase();
 
-          await sql`
-            INSERT INTO attachments (
-              id,
-              user_id,
-              conversation_id,
-              file_name,
-              mime_type,
-              size_bytes,
-              kind,
-              storage_provider,
-              storage_key,
-              storage_url,
-              status
-            )
-            VALUES (
-              ${crypto.randomUUID()},
-              ${payload.userId},
-              ${payload.conversationId},
-              ${payload.fileName},
-              ${payload.mimeType},
-              ${payload.sizeBytes},
-              ${payload.kind},
-              'vercel-blob',
-              ${blob.pathname},
-              ${blob.url},
-              'uploaded'
-            )
-          `;
-        },
-    });
+            const rows =
+              await sql<
+                { id: string }[]
+              >`
+                UPDATE attachments
+                SET
+                  storage_key =
+                    ${blob.pathname},
+                  storage_url =
+                    ${blob.url},
+                  status =
+                    'uploaded'
+                WHERE id =
+                    ${payload.attachmentId}
+                  AND user_id =
+                    ${payload.userId}
+                  AND conversation_id =
+                    ${payload.conversationId}
+                RETURNING id
+              `;
+
+            if (!rows[0]) {
+              throw new Error(
+                'Attachment record not found.'
+              );
+            }
+          },
+      });
 
     res.json(result);
   } catch (error) {

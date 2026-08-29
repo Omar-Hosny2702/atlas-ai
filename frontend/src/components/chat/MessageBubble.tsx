@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
+  FileText,
 } from 'lucide-react';
 
 import { MarkdownRenderer } from './MarkdownRenderer';
@@ -24,6 +25,25 @@ interface MessageBubbleProps {
   isStreaming: boolean;
 }
 
+function formatFileSize(
+  bytes: number
+): string {
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+
+  if (bytes < 1024 * 1024) {
+    return `${(
+      bytes / 1024
+    ).toFixed(1)} KB`;
+  }
+
+  return `${(
+    bytes /
+    (1024 * 1024)
+  ).toFixed(1)} MB`;
+}
+
 export function MessageBubble({
   message,
   isStreamingPlaceholder,
@@ -33,12 +53,32 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const isUser =
     message.role === 'user';
-    const research =
-  message.research ??
-  message.metadata?.research;
 
-  const [sourcesOpen, setSourcesOpen] =
-    useState(false);
+  const research =
+    message.research ??
+    message.metadata?.research;
+
+  const attachments =
+    message.metadata?.attachments ??
+    [];
+
+  const imageAttachments =
+    attachments.filter(
+      (attachment) =>
+        attachment.kind === 'image' &&
+        attachment.storageUrl
+    );
+
+  const fileAttachments =
+    attachments.filter(
+      (attachment) =>
+        attachment.kind === 'file'
+    );
+
+  const [
+    sourcesOpen,
+    setSourcesOpen,
+  ] = useState(false);
 
   const isEmpty =
     isStreamingPlaceholder &&
@@ -65,11 +105,10 @@ export function MessageBubble({
         {isUser ? (
           <div
             className="
+              overflow-hidden
               rounded-[20px]
               rounded-br-[7px]
               bg-[#1b1f27]
-              px-4
-              py-2.5
               text-[0.95rem]
               leading-relaxed
               text-white
@@ -77,14 +116,173 @@ export function MessageBubble({
               dark:bg-[#20242d]
             "
           >
-            <p className="whitespace-pre-wrap break-words">
-              {message.content}
-            </p>
+            {imageAttachments.length >
+              0 && (
+              <div
+                className={clsx(
+                  'grid gap-1.5 p-1.5',
+                  imageAttachments.length >
+                    1
+                    ? 'grid-cols-2'
+                    : 'grid-cols-1'
+                )}
+              >
+                {imageAttachments.map(
+                  (attachment) => (
+                    <a
+                      key={
+                        attachment.id
+                      }
+                      href={
+                        attachment.storageUrl ??
+                        undefined
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="
+                        block
+                        overflow-hidden
+                        rounded-[15px]
+                        bg-black/20
+                      "
+                    >
+                      <img
+                        src={
+                          attachment.storageUrl ??
+                          undefined
+                        }
+                        alt={
+                          attachment.fileName
+                        }
+                        className="
+                          max-h-[420px]
+                          w-full
+                          object-cover
+                        "
+                      />
+                    </a>
+                  )
+                )}
+              </div>
+            )}
 
-            {message.stopped && (
-              <p className="mt-1.5 text-xs italic opacity-70">
-                Generation stopped.
-              </p>
+            {fileAttachments.length >
+              0 && (
+              <div
+                className="
+                  flex
+                  flex-col
+                  gap-1.5
+                  px-2
+                  pt-2
+                "
+              >
+                {fileAttachments.map(
+                  (attachment) => (
+                    <a
+                      key={
+                        attachment.id
+                      }
+                      href={
+                        attachment.storageUrl ??
+                        undefined
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="
+                        flex
+                        min-w-[220px]
+                        items-center
+                        gap-3
+                        rounded-xl
+                        bg-white/[0.08]
+                        px-3
+                        py-2.5
+                        transition
+                        hover:bg-white/[0.12]
+                      "
+                    >
+                      <div
+                        className="
+                          flex
+                          h-9
+                          w-9
+                          shrink-0
+                          items-center
+                          justify-center
+                          rounded-lg
+                          bg-white/[0.09]
+                        "
+                      >
+                        <FileText
+                          size={18}
+                        />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p
+                          className="
+                            truncate
+                            text-sm
+                            font-medium
+                          "
+                        >
+                          {
+                            attachment.fileName
+                          }
+                        </p>
+
+                        <p
+                          className="
+                            mt-0.5
+                            text-[11px]
+                            text-white/55
+                          "
+                        >
+                          {formatFileSize(
+                            attachment.sizeBytes
+                          )}
+                        </p>
+                      </div>
+
+                      <ExternalLink
+                        size={14}
+                        className="
+                          shrink-0
+                          opacity-60
+                        "
+                      />
+                    </a>
+                  )
+                )}
+              </div>
+            )}
+
+            {message.content && (
+              <div className="px-4 py-2.5">
+                <p
+                  className="
+                    whitespace-pre-wrap
+                    break-words
+                  "
+                >
+                  {message.content}
+                </p>
+
+                {message.stopped && (
+                  <p
+                    className="
+                      mt-1.5
+                      text-xs
+                      italic
+                      opacity-70
+                    "
+                  >
+                    Generation
+                    stopped.
+                  </p>
+                )}
+              </div>
             )}
           </div>
         ) : (
@@ -96,18 +294,25 @@ export function MessageBubble({
             ) : message.error ? (
               <div
                 className="
-                  flex items-start gap-2
+                  flex
+                  items-start
+                  gap-2
                   rounded-xl
-                  border border-red-500/20
+                  border
+                  border-red-500/20
                   bg-red-500/[0.06]
-                  px-3.5 py-3
+                  px-3.5
+                  py-3
                   text-danger-light
                   dark:text-danger-dark
                 "
               >
                 <AlertCircle
                   size={16}
-                  className="mt-0.5 shrink-0"
+                  className="
+                    mt-0.5
+                    shrink-0
+                  "
                 />
 
                 <span className="text-sm">
@@ -115,7 +320,12 @@ export function MessageBubble({
                 </span>
               </div>
             ) : message.image ? (
-              <div className="overflow-hidden rounded-2xl">
+              <div
+                className="
+                  overflow-hidden
+                  rounded-2xl
+                "
+              >
                 <img
                   src={`data:${message.image.mimeType};base64,${message.image.data}`}
                   alt={
@@ -150,15 +360,23 @@ export function MessageBubble({
 
             {message.stopped &&
               !message.image && (
-                <p className="mt-2 text-xs italic text-muted-light dark:text-muted-dark">
+                <p
+                  className="
+                    mt-2
+                    text-xs
+                    italic
+                    text-muted-light
+                    dark:text-muted-dark
+                  "
+                >
                   Generation stopped.
                 </p>
               )}
           </div>
         )}
 
-        {message.research &&
-          message.research.sources.length >
+        {research &&
+          research.sources.length >
             0 && (
             <div
               className={clsx(
@@ -176,10 +394,12 @@ export function MessageBubble({
                   )
                 }
                 className="
-                  flex items-center
+                  flex
+                  items-center
                   gap-1.5
                   rounded-lg
-                  px-2 py-1.5
+                  px-2
+                  py-1.5
                   text-xs
                   font-medium
                   text-muted-light
@@ -203,8 +423,8 @@ export function MessageBubble({
 
                 <span className="opacity-60">
                   {
-                    message.research
-                      .sources.length
+                    research.sources
+                      .length
                   }
                 </span>
               </button>
@@ -213,17 +433,19 @@ export function MessageBubble({
                 <div
                   className="
                     mt-1
-                    flex flex-col
+                    flex
+                    flex-col
                     gap-1
                     rounded-xl
-                    border border-black/[0.07]
+                    border
+                    border-black/[0.07]
                     bg-black/[0.02]
                     p-2
                     dark:border-white/[0.08]
                     dark:bg-white/[0.03]
                   "
                 >
-                  {message.research.sources.map(
+                  {research.sources.map(
                     (
                       source,
                       index
@@ -250,7 +472,13 @@ export function MessageBubble({
                         "
                       >
                         <div className="min-w-0">
-                          <span className="mr-2 text-muted-light dark:text-muted-dark">
+                          <span
+                            className="
+                              mr-2
+                              text-muted-light
+                              dark:text-muted-dark
+                            "
+                          >
                             {index +
                               1}
                             .
@@ -265,7 +493,10 @@ export function MessageBubble({
 
                         <ExternalLink
                           size={13}
-                          className="shrink-0 opacity-60"
+                          className="
+                            shrink-0
+                            opacity-60
+                          "
                         />
                       </a>
                     )
@@ -283,7 +514,13 @@ export function MessageBubble({
               : 'flex-row'
           )}
         >
-          <span className="text-[10px] text-muted-light/80 dark:text-muted-dark/80">
+          <span
+            className="
+              text-[10px]
+              text-muted-light/80
+              dark:text-muted-dark/80
+            "
+          >
             {formatTime(
               message.createdAt
             )}

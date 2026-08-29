@@ -604,22 +604,17 @@ export function ChatWindow({
               },
           });
 
-        const attachment:
-          PendingAttachment = {
-            id: crypto.randomUUID(),
-            fileName:
-              file.name,
-            mimeType:
-              file.type ||
-              uploaded.contentType ||
-              'application/octet-stream',
-            sizeBytes:
-              file.size,
-            kind,
-            url: uploaded.url,
-            pathname:
-              uploaded.pathname,
-          };
+       const attachment: PendingAttachment = {
+  id: uploaded.attachmentId,
+  fileName: file.name,
+  mimeType:
+    file.type ||
+    'application/octet-stream',
+  sizeBytes: file.size,
+  kind,
+  url: uploaded.url,
+  pathname: uploaded.pathname,
+};
 
         setPendingAttachments(
           (current) => [

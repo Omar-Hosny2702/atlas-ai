@@ -1,17 +1,24 @@
-import { upload } from '@vercel/blob/client';
+import {
+  upload,
+} from '@vercel/blob/client';
 
-import { apiFetch, BASE_URL } from './client';
+import {
+  apiFetch,
+  BASE_URL,
+} from './client';
 
 export type AttachmentKind =
   | 'image'
   | 'file';
 
 interface UploadTicketResponse {
+  attachmentId: string;
   ticket: string;
   expiresIn: number;
 }
 
 export interface UploadedAttachment {
+  attachmentId: string;
   url: string;
   pathname: string;
   contentType: string;
@@ -33,12 +40,10 @@ export async function uploadAttachment({
   kind,
   onProgress,
 }: UploadAttachmentOptions): Promise<UploadedAttachment> {
-  /*
-   * Step 1:
-   * Ask Atlas backend for a short-lived,
-   * authenticated upload ticket.
-   */
-  const { ticket } =
+  const {
+    attachmentId,
+    ticket,
+  } =
     await apiFetch<UploadTicketResponse>(
       '/attachments/ticket',
       {
@@ -46,51 +51,50 @@ export async function uploadAttachment({
 
         body: JSON.stringify({
           conversationId,
-          fileName: file.name,
+          fileName:
+            file.name,
           mimeType:
             file.type ||
             'application/octet-stream',
-          sizeBytes: file.size,
+          sizeBytes:
+            file.size,
           kind,
         }),
       }
     );
 
-  /*
-   * Step 2:
-   * Upload browser -> Vercel Blob.
-   *
-   * The actual file does NOT travel through
-   * the Atlas Express server.
-   */
-  const blob = await upload(
-    file.name,
-    file,
-    {
-      access: 'private',
+  const blob =
+    await upload(
+      file.name,
+      file,
+      {
+        access: 'private',
 
-      handleUploadUrl:
-        `${BASE_URL}/attachments/upload`,
+        handleUploadUrl:
+          `${BASE_URL}/attachments/upload`,
 
-      clientPayload: ticket,
+        clientPayload:
+          ticket,
 
-      multipart:
-        file.size >
-        5 * 1024 * 1024,
+        multipart:
+          file.size >
+          5 * 1024 * 1024,
 
-      onUploadProgress({
-        percentage,
-      }) {
-        onProgress?.(
-          percentage
-        );
-      },
-    }
-  );
+        onUploadProgress({
+          percentage,
+        }) {
+          onProgress?.(
+            percentage
+          );
+        },
+      }
+    );
 
   return {
+    attachmentId,
     url: blob.url,
-    pathname: blob.pathname,
+    pathname:
+      blob.pathname,
     contentType:
       blob.contentType,
     contentDisposition:
