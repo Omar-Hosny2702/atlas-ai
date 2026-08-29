@@ -11,19 +11,27 @@ export interface PlanResult {
 }
 
 export function explainTopic(
-  topic: string
+  topic: string,
+  conversationId: string
 ): Promise<ExplainResult> {
   return apiFetch<ExplainResult>('/actions/explain', {
     method: 'POST',
-    body: JSON.stringify({ topic }),
+    body: JSON.stringify({
+      topic,
+      conversationId,
+    }),
   });
 }
 
 export function planGoal(
-  goal: string
+  goal: string,
+  conversationId: string
 ): Promise<PlanResult> {
   return apiFetch<PlanResult>('/actions/plan', {
     method: 'POST',
-    body: JSON.stringify({ goal }),
+    body: JSON.stringify({
+      goal,
+      conversationId,
+    }),
   });
 }

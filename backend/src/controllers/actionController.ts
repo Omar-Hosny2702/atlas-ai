@@ -1,8 +1,14 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 
+import {
+  addMessage,
+  maybeAutoTitle,
+} from '../services/conversationService.js';
+
 import { generateImage } from '../services/imageGenerationService.js';
 import { researchTopic } from '../services/researchService.js';
+
 import {
   explainTopic,
   planGoal,
@@ -22,6 +28,8 @@ export const researchSchema = z.object({
     .trim()
     .min(1, 'Research query cannot be empty.')
     .max(4000, 'Research query is too long.'),
+
+  conversationId: z.string().min(1),
 });
 
 export const explainSchema = z.object({
@@ -30,6 +38,8 @@ export const explainSchema = z.object({
     .trim()
     .min(1, 'Explain topic cannot be empty.')
     .max(4000, 'Explain topic is too long.'),
+
+  conversationId: z.string().min(1),
 });
 
 export const planSchema = z.object({
@@ -38,6 +48,8 @@ export const planSchema = z.object({
     .trim()
     .min(1, 'Plan goal cannot be empty.')
     .max(4000, 'Plan goal is too long.'),
+
+  conversationId: z.string().min(1),
 });
 
 export async function handleGenerateImage(
@@ -59,9 +71,34 @@ export async function handleResearch(
   req: Request,
   res: Response
 ): Promise<void> {
-  const { query } = researchSchema.parse(req.body);
+  const userId = req.auth!.userId;
+
+  const { query, conversationId } =
+    researchSchema.parse(req.body);
+
+  const originalContent = `/atlas research ${query}`;
+
+  await addMessage(
+    userId,
+    conversationId,
+    'user',
+    originalContent
+  );
 
   const result = await researchTopic(query);
+
+  await addMessage(
+    userId,
+    conversationId,
+    'assistant',
+    result.answer
+  );
+
+  await maybeAutoTitle(
+    userId,
+    conversationId,
+    originalContent
+  );
 
   res.json({
     type: 'research',
@@ -73,9 +110,34 @@ export async function handleExplain(
   req: Request,
   res: Response
 ): Promise<void> {
-  const { topic } = explainSchema.parse(req.body);
+  const userId = req.auth!.userId;
+
+  const { topic, conversationId } =
+    explainSchema.parse(req.body);
+
+  const originalContent = `/atlas explain ${topic}`;
+
+  await addMessage(
+    userId,
+    conversationId,
+    'user',
+    originalContent
+  );
 
   const answer = await explainTopic(topic);
+
+  await addMessage(
+    userId,
+    conversationId,
+    'assistant',
+    answer
+  );
+
+  await maybeAutoTitle(
+    userId,
+    conversationId,
+    originalContent
+  );
 
   res.json({
     type: 'explain',
@@ -87,9 +149,34 @@ export async function handlePlan(
   req: Request,
   res: Response
 ): Promise<void> {
-  const { goal } = planSchema.parse(req.body);
+  const userId = req.auth!.userId;
+
+  const { goal, conversationId } =
+    planSchema.parse(req.body);
+
+  const originalContent = `/atlas plan ${goal}`;
+
+  await addMessage(
+    userId,
+    conversationId,
+    'user',
+    originalContent
+  );
 
   const answer = await planGoal(goal);
+
+  await addMessage(
+    userId,
+    conversationId,
+    'assistant',
+    answer
+  );
+
+  await maybeAutoTitle(
+    userId,
+    conversationId,
+    originalContent
+  );
 
   res.json({
     type: 'plan',

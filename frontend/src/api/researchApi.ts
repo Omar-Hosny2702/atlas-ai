@@ -13,10 +13,14 @@ export interface ResearchResult {
 }
 
 export function researchTopic(
-  query: string
+  query: string,
+  conversationId: string
 ): Promise<ResearchResult> {
   return apiFetch<ResearchResult>('/actions/research', {
     method: 'POST',
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({
+      query,
+      conversationId,
+    }),
   });
 }

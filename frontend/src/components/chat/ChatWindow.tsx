@@ -193,22 +193,14 @@ export function ChatWindow({
     setIsRunningAction(true);
 
     try {
-      const result = await researchTopic(query);
-
-      setActionMessages((current) =>
-        current.map((message) =>
-          message.id === assistantId
-            ? {
-                ...message,
-                content: result.answer,
-                research: {
-                  sources: result.sources,
-                  searchQueries: result.searchQueries,
-                },
-              }
-            : message
-        )
+      await researchTopic(
+        query,
+        conversationId
       );
+
+      await reload();
+      await refreshList();
+      setActionMessages([]);
     } catch (error) {
       setActionError(
         assistantId,
@@ -236,18 +228,14 @@ export function ChatWindow({
     setIsRunningAction(true);
 
     try {
-      const result = await explainTopic(topic);
-
-      setActionMessages((current) =>
-        current.map((message) =>
-          message.id === assistantId
-            ? {
-                ...message,
-                content: result.answer,
-              }
-            : message
-        )
+      await explainTopic(
+        topic,
+        conversationId
       );
+
+      await reload();
+      await refreshList();
+      setActionMessages([]);
     } catch (error) {
       setActionError(
         assistantId,
@@ -275,18 +263,14 @@ export function ChatWindow({
     setIsRunningAction(true);
 
     try {
-      const result = await planGoal(goal);
-
-      setActionMessages((current) =>
-        current.map((message) =>
-          message.id === assistantId
-            ? {
-                ...message,
-                content: result.answer,
-              }
-            : message
-        )
+      await planGoal(
+        goal,
+        conversationId
       );
+
+      await reload();
+      await refreshList();
+      setActionMessages([]);
     } catch (error) {
       setActionError(
         assistantId,
