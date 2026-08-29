@@ -1,12 +1,17 @@
 import { forwardRef, type RefObject } from 'react';
-import { Moon, Settings, Sun, X } from 'lucide-react';
+import {
+  ChevronDown,
+  Search,
+  Settings,
+  X,
+} from 'lucide-react';
+
 import { Logo } from '@/components/common/Logo';
 import { IconButton } from '@/components/common/IconButton';
-import { NewChatButton } from '@/components/sidebar/NewChatButton';
-import { SearchBar } from '@/components/sidebar/SearchBar';
 import { ConversationList } from '@/components/sidebar/ConversationList';
+
 import { useConversations } from '@/context/ConversationContext';
-import { useTheme } from '@/context/ThemeContext';
+import { useAuth } from '@/auth/AuthContext';
 
 interface SidebarProps {
   isMobileOpen: boolean;
@@ -16,79 +21,236 @@ interface SidebarProps {
   searchInputRef: RefObject<HTMLInputElement>;
 }
 
-export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
-  { isMobileOpen, onCloseMobile, onSelectConversation, onOpenSettings, searchInputRef },
-  ref
-) {
-  const { searchQuery, setSearchQuery, createNewConversation, selectConversation } =
-    useConversations();
-  const { theme, toggleTheme } = useTheme();
+export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
+  function Sidebar(
+    {
+      isMobileOpen,
+      onCloseMobile,
+      onSelectConversation,
+      onOpenSettings,
+      searchInputRef,
+    },
+    ref
+  ) {
+    const {
+      searchQuery,
+      setSearchQuery,
+      createNewConversation,
+      selectConversation,
+    } = useConversations();
 
-  const handleNewChat = async () => {
-    const id = await createNewConversation();
-    if (id) {
-      onSelectConversation(id);
-      selectConversation(id);
-    }
-  };
+    const { session } = useAuth();
 
-  return (
-    <>
-      {isMobileOpen && (
-        <div
-          className="fixed inset-0 bg-ink/50 z-30 md:hidden animate-fade-in"
-          onClick={onCloseMobile}
-          aria-hidden="true"
-        />
-      )}
+    const user = session?.user;
 
-      <aside
-        ref={ref}
-        className={`
-          fixed md:static inset-y-0 left-0 z-40 w-72 shrink-0
-          flex flex-col border-r border-border-light dark:border-border-dark
-          bg-paper dark:bg-ink
-          transition-transform duration-200 ease-out
-          ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-        `}
-        aria-label="Conversation history"
-      >
-        <div className="flex items-center justify-between gap-2 px-3.5 pt-4 pb-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <Logo size={26} />
-            <span className="font-display font-semibold text-sm truncate">Atlas AI</span>
+    const displayName =
+      user?.name ||
+      user?.email?.split('@')[0] ||
+      'Account';
+
+    const initials = displayName
+      .split(' ')
+      .map((part) => part[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase();
+
+    const handleNewChat = async () => {
+      const id = await createNewConversation();
+
+      if (id) {
+        onSelectConversation(id);
+        selectConversation(id);
+      }
+    };
+
+    return (
+      <>
+        {isMobileOpen && (
+          <div
+            className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm md:hidden"
+            onClick={onCloseMobile}
+            aria-hidden="true"
+          />
+        )}
+
+        <aside
+          ref={ref}
+          aria-label="Conversation history"
+          className={`
+            fixed inset-y-0 left-0 z-40
+            flex w-[300px] shrink-0 flex-col
+            border-r border-white/10
+            bg-[#080a0f]
+            text-white
+            transition-transform duration-200 ease-out
+            md:static
+            ${isMobileOpen
+              ? 'translate-x-0'
+              : '-translate-x-full md:translate-x-0'}
+          `}
+        >
+          {/* Atlas header */}
+          <div className="flex items-center justify-between px-5 pb-4 pt-5">
+            <div className="flex min-w-0 items-center gap-3">
+              <Logo size={30} />
+
+              <span className="truncate font-display text-lg font-semibold">
+                Atlas AI
+              </span>
+            </div>
+
+            <IconButton
+              label="Close sidebar"
+              onClick={onCloseMobile}
+              className="md:hidden"
+            >
+              <X size={18} />
+            </IconButton>
           </div>
-          <IconButton label="Close sidebar" onClick={onCloseMobile} className="md:hidden">
-            <X size={16} />
-          </IconButton>
-        </div>
 
-        <div className="px-3 flex flex-col gap-2.5">
-          <NewChatButton onClick={handleNewChat} />
-          <SearchBar ref={searchInputRef} value={searchQuery} onChange={setSearchQuery} />
-        </div>
+          {/* Search */}
+          <div className="px-4">
+            <div className="relative">
+              <Search
+                size={17}
+                className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/45"
+              />
 
-        <nav className="grow overflow-y-auto scrollbar-thin px-3 mt-4 pb-3">
-          <ConversationList onSelect={onSelectConversation} />
-        </nav>
+              <input
+                ref={searchInputRef}
+                value={searchQuery}
+                onChange={(event) =>
+                  setSearchQuery(event.target.value)
+                }
+                placeholder="Search chats..."
+                className="
+                  h-11 w-full
+                  rounded-xl
+                  border border-white/10
+                  bg-white/[0.04]
+                  pl-10 pr-4
+                  text-sm text-white
+                  outline-none
+                  placeholder:text-white/35
+                  transition
+                  focus:border-white/20
+                  focus:bg-white/[0.06]
+                "
+              />
+            </div>
+          </div>
 
-        <div className="flex items-center justify-between gap-2 border-t border-border-light dark:border-border-dark px-3.5 py-3">
-          <button
-            onClick={onOpenSettings}
-            className="flex items-center gap-2 text-sm font-medium text-muted-light dark:text-muted-dark hover:text-ink dark:hover:text-paper transition-colors"
+          {/* New chat */}
+          <div className="px-4 pt-3">
+            <button
+              type="button"
+              onClick={handleNewChat}
+              className="
+                flex h-11 w-full
+                items-center justify-center gap-2
+                rounded-xl
+                bg-accent-500
+                px-4
+                text-sm font-semibold text-white
+                transition
+                hover:bg-accent-600
+                active:scale-[0.99]
+              "
+            >
+              <span className="text-xl font-light leading-none">
+                +
+              </span>
+
+              New chat
+            </button>
+          </div>
+
+          {/* Chats */}
+          <nav
+            className="
+              mt-4 grow
+              overflow-y-auto
+              px-3 pb-4
+              scrollbar-thin
+            "
           >
-            <Settings size={16} />
-            Settings
-          </button>
-          <IconButton
-            label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            onClick={toggleTheme}
-            size="sm"
-          >
-            {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
-          </IconButton>
-        </div>
-      </aside>
-    </>
-  );
-});
+            <ConversationList
+              onSelect={onSelectConversation}
+            />
+          </nav>
+
+          {/* Bottom account area */}
+          <div className="border-t border-white/10">
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              className="
+                flex w-full items-center gap-3
+                px-5 py-3.5
+                text-sm text-white/75
+                transition
+                hover:bg-white/[0.05]
+                hover:text-white
+              "
+            >
+              <Settings size={18} />
+
+              <span>Settings</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              className="
+                flex w-full items-center gap-3
+                border-t border-white/10
+                px-4 py-4
+                text-left
+                transition
+                hover:bg-white/[0.05]
+              "
+            >
+              {user?.picture ? (
+                <img
+                  src={user.picture}
+                  alt=""
+                  className="h-10 w-10 shrink-0 rounded-full object-cover"
+                />
+              ) : (
+                <div
+                  className="
+                    flex h-10 w-10 shrink-0
+                    items-center justify-center
+                    rounded-full
+                    bg-accent-500
+                    text-sm font-semibold text-white
+                  "
+                >
+                  {initials}
+                </div>
+              )}
+
+              <div className="min-w-0 grow">
+                <p className="truncate text-sm font-medium text-white">
+                  {displayName}
+                </p>
+
+                {user?.email && (
+                  <p className="truncate text-xs text-white/45">
+                    {user.email}
+                  </p>
+                )}
+              </div>
+
+              <ChevronDown
+                size={16}
+                className="shrink-0 text-white/45"
+              />
+            </button>
+          </div>
+        </aside>
+      </>
+    );
+  }
+);

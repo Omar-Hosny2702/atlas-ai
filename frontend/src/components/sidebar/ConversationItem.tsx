@@ -1,7 +1,22 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from 'react';
+
 import clsx from 'clsx';
-import { Check, Pencil, Pin, Trash2, X } from 'lucide-react';
+
+import {
+  Check,
+  Pencil,
+  Pin,
+  Trash2,
+  X,
+} from 'lucide-react';
+
 import { IconButton } from '@/components/common/IconButton';
+
 import type { ConversationSummary } from '@/types';
 
 interface ConversationItemProps {
@@ -21,9 +36,14 @@ export function ConversationItem({
   onDelete,
   onTogglePin,
 }: ConversationItemProps) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(conversation.title);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [editing, setEditing] =
+    useState(false);
+
+  const [draft, setDraft] =
+    useState(conversation.title);
+
+  const inputRef =
+    useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (editing) {
@@ -32,42 +52,90 @@ export function ConversationItem({
     }
   }, [editing]);
 
+  useEffect(() => {
+    if (!editing) {
+      setDraft(conversation.title);
+    }
+  }, [conversation.title, editing]);
+
   const commitRename = () => {
     const trimmed = draft.trim();
+
     setEditing(false);
-    if (trimmed && trimmed !== conversation.title) onRename(trimmed);
-    else setDraft(conversation.title);
+
+    if (
+      trimmed &&
+      trimmed !== conversation.title
+    ) {
+      onRename(trimmed);
+      return;
+    }
+
+    setDraft(conversation.title);
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') commitRename();
-    if (e.key === 'Escape') {
-      setDraft(conversation.title);
-      setEditing(false);
+  const cancelRename = () => {
+    setDraft(conversation.title);
+    setEditing(false);
+  };
+
+  const handleKeyDown = (
+    event: KeyboardEvent<HTMLInputElement>
+  ) => {
+    if (event.key === 'Enter') {
+      commitRename();
+    }
+
+    if (event.key === 'Escape') {
+      cancelRename();
     }
   };
 
   if (editing) {
     return (
-      <div className="flex items-center gap-1 rounded-lg px-2.5 py-2 bg-paper-alt dark:bg-ink-raised">
+      <div
+        className="
+          flex
+          items-center
+          gap-1
+          rounded-xl
+          border border-white/[0.08]
+          bg-white/[0.06]
+          px-2.5
+          py-2
+        "
+      >
         <input
           ref={inputRef}
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={(event) =>
+            setDraft(event.target.value)
+          }
           onKeyDown={handleKeyDown}
           aria-label="Rename chat"
-          className="grow bg-transparent text-sm outline-none min-w-0"
+          className="
+            min-w-0
+            grow
+            bg-transparent
+            text-sm
+            text-white
+            outline-none
+            placeholder:text-white/30
+          "
         />
-        <IconButton label="Save name" size="sm" onClick={commitRename}>
+
+        <IconButton
+          label="Save name"
+          size="sm"
+          onClick={commitRename}
+        >
           <Check size={13} />
         </IconButton>
+
         <IconButton
           label="Cancel rename"
           size="sm"
-          onClick={() => {
-            setDraft(conversation.title);
-            setEditing(false);
-          }}
+          onClick={cancelRename}
         >
           <X size={13} />
         </IconButton>
@@ -78,34 +146,118 @@ export function ConversationItem({
   return (
     <div
       className={clsx(
-        'group flex items-center gap-1 rounded-lg px-2.5 py-2 cursor-pointer transition-colors',
+        `
+          group
+          flex
+          cursor-pointer
+          items-center
+          gap-1
+          rounded-xl
+          px-2.5
+          py-2.5
+          transition
+        `,
         active
-          ? 'bg-accent-100 dark:bg-ink-raised text-accent-800 dark:text-paper'
-          : 'hover:bg-paper-alt dark:hover:bg-ink-raised'
+          ? `
+            bg-white/[0.09]
+            text-white
+          `
+          : `
+            text-white/72
+            hover:bg-white/[0.05]
+            hover:text-white
+          `
       )}
       onClick={onSelect}
     >
       <button
-        className="grow min-w-0 text-left flex items-center gap-1.5"
-        aria-current={active ? 'true' : undefined}
+        type="button"
+        aria-current={
+          active
+            ? 'true'
+            : undefined
+        }
+        className="
+          flex
+          min-w-0
+          grow
+          items-center
+          gap-2
+          text-left
+        "
       >
         {conversation.pinned && (
-          <Pin size={11} className="shrink-0 fill-current text-accent-500 dark:text-accent-dark" />
+          <Pin
+            size={11}
+            className="
+              shrink-0
+              fill-current
+              text-accent-500
+            "
+          />
         )}
-        <span className="truncate text-sm">{conversation.title}</span>
+
+        <span
+          className={clsx(
+            'truncate text-sm',
+            active
+              ? 'font-medium'
+              : 'font-normal'
+          )}
+        >
+          {conversation.title}
+        </span>
       </button>
 
       <div
-        className="hidden group-hover:flex items-center gap-0.5 shrink-0"
-        onClick={(e) => e.stopPropagation()}
+        className={clsx(
+          `
+            shrink-0
+            items-center
+            gap-0.5
+          `,
+          active
+            ? 'flex'
+            : 'hidden group-hover:flex'
+        )}
+        onClick={(event) =>
+          event.stopPropagation()
+        }
       >
-        <IconButton label={conversation.pinned ? 'Unpin chat' : 'Pin chat'} size="sm" onClick={onTogglePin}>
-          <Pin size={13} className={conversation.pinned ? 'fill-current' : ''} />
+        <IconButton
+          label={
+            conversation.pinned
+              ? 'Unpin chat'
+              : 'Pin chat'
+          }
+          size="sm"
+          onClick={onTogglePin}
+        >
+          <Pin
+            size={13}
+            className={
+              conversation.pinned
+                ? 'fill-current'
+                : ''
+            }
+          />
         </IconButton>
-        <IconButton label="Rename chat" size="sm" onClick={() => setEditing(true)}>
+
+        <IconButton
+          label="Rename chat"
+          size="sm"
+          onClick={() =>
+            setEditing(true)
+          }
+        >
           <Pencil size={13} />
         </IconButton>
-        <IconButton label="Delete chat" size="sm" onClick={onDelete}>
+
+        <IconButton
+          label="Delete chat"
+          size="sm"
+          onClick={onDelete}
+        >
           <Trash2 size={13} />
         </IconButton>
       </div>

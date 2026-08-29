@@ -2,22 +2,35 @@ import {
   useEffect,
   useRef,
   useState,
+  type ChangeEvent,
   type KeyboardEvent,
 } from 'react';
+
 import {
   ArrowUp,
-  Square,
-  Image,
-  Search,
   Brain,
+  FileDown,
+  FileUp,
+  Image,
   ListTodo,
   MessageCircleQuestion,
+  Mic,
+  Paperclip,
+  Plus,
+  Search,
+  Sparkles,
+  Square,
 } from 'lucide-react';
-import { IconButton } from '@/components/common/IconButton';
 
 interface MessageInputProps {
   onSend: (content: string) => void;
   onStop: () => void;
+
+  onAttachImage?: (file: File) => void;
+  onAttachFile?: (file: File) => void;
+  onImport?: (file: File) => void;
+  onExport?: () => void;
+
   isStreaming: boolean;
   disabled?: boolean;
   disabledReason?: string;
@@ -80,16 +93,43 @@ const COMMANDS: AtlasCommand[] = [
 export function MessageInput({
   onSend,
   onStop,
+  onAttachImage,
+  onAttachFile,
+  onImport,
+  onExport,
   isStreaming,
   disabled,
   disabledReason,
 }: MessageInputProps) {
   const [value, setValue] = useState('');
-  const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
 
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [
+    selectedCommandIndex,
+    setSelectedCommandIndex,
+  ] = useState(0);
 
-  const trimmedStart = value.trimStart();
+  const [
+    plusMenuOpen,
+    setPlusMenuOpen,
+  ] = useState(false);
+
+  const textareaRef =
+    useRef<HTMLTextAreaElement>(null);
+
+  const plusMenuRef =
+    useRef<HTMLDivElement>(null);
+
+  const imageInputRef =
+    useRef<HTMLInputElement>(null);
+
+  const fileInputRef =
+    useRef<HTMLInputElement>(null);
+
+  const importInputRef =
+    useRef<HTMLInputElement>(null);
+
+  const trimmedStart =
+    value.trimStart();
 
   const commandMenuOpen =
     !isStreaming &&
@@ -102,23 +142,34 @@ export function MessageInput({
     .trim()
     .toLowerCase();
 
-  const filteredCommands = COMMANDS.filter((command) => {
-    if (!commandSearch) return true;
+  const filteredCommands =
+    COMMANDS.filter((command) => {
+      if (!commandSearch) {
+        return true;
+      }
 
-    return (
-      command.label.toLowerCase().includes(commandSearch) ||
-      command.id.toLowerCase().includes(commandSearch)
-    );
-  });
+      return (
+        command.label
+          .toLowerCase()
+          .includes(commandSearch) ||
+        command.id
+          .toLowerCase()
+          .includes(commandSearch)
+      );
+    });
 
   useEffect(() => {
-    const el = textareaRef.current;
+    const element =
+      textareaRef.current;
 
-    if (!el) return;
+    if (!element) {
+      return;
+    }
 
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(
-      el.scrollHeight,
+    element.style.height = 'auto';
+
+    element.style.height = `${Math.min(
+      element.scrollHeight,
       MAX_HEIGHT_PX
     )}px`;
   }, [value]);
@@ -127,15 +178,54 @@ export function MessageInput({
     setSelectedCommandIndex(0);
   }, [commandSearch]);
 
-  const chooseCommand = (command: AtlasCommand) => {
-    if (!command.available) return;
+  useEffect(() => {
+    const handleOutsideClick = (
+      event: MouseEvent
+    ) => {
+      if (
+        plusMenuRef.current &&
+        !plusMenuRef.current.contains(
+          event.target as Node
+        )
+      ) {
+        setPlusMenuOpen(false);
+      }
+    };
+
+    document.addEventListener(
+      'mousedown',
+      handleOutsideClick
+    );
+
+    return () => {
+      document.removeEventListener(
+        'mousedown',
+        handleOutsideClick
+      );
+    };
+  }, []);
+
+  const focusComposer = () => {
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+    });
+  };
+
+  const chooseCommand = (
+    command: AtlasCommand
+  ) => {
+    if (!command.available) {
+      return;
+    }
 
     setValue(command.prefix);
+    setPlusMenuOpen(false);
 
     requestAnimationFrame(() => {
       textareaRef.current?.focus();
 
-      const length = command.prefix.length;
+      const length =
+        command.prefix.length;
 
       textareaRef.current?.setSelectionRange(
         length,
@@ -144,10 +234,75 @@ export function MessageInput({
     });
   };
 
+  const openAtlasActions = () => {
+    setValue('/');
+    setPlusMenuOpen(false);
+    focusComposer();
+  };
+
+  const handleImageSelected = (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const file =
+      event.target.files?.[0];
+
+    event.target.value = '';
+
+    if (!file) {
+      return;
+    }
+
+    onAttachImage?.(file);
+    setPlusMenuOpen(false);
+  };
+
+  const handleFileSelected = (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const file =
+      event.target.files?.[0];
+
+    event.target.value = '';
+
+    if (!file) {
+      return;
+    }
+
+    onAttachFile?.(file);
+    setPlusMenuOpen(false);
+  };
+
+  const handleImportSelected = (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const file =
+      event.target.files?.[0];
+
+    event.target.value = '';
+
+    if (!file) {
+      return;
+    }
+
+    onImport?.(file);
+    setPlusMenuOpen(false);
+  };
+
+  const handleExport = () => {
+    setPlusMenuOpen(false);
+    onExport?.();
+  };
+
   const handleSend = () => {
     const trimmed = value.trim();
 
-    if (!trimmed || isStreaming || disabled) return;
+    if (
+      !trimmed ||
+      isStreaming ||
+      disabled
+    ) {
+      return;
+    }
 
     // ==========================
     // ATLAS MOTHER KEY
@@ -189,90 +344,141 @@ Awaiting command...
     }
 
     onSend(trimmed);
+
     setValue('');
+    setPlusMenuOpen(false);
   };
 
   const handleKeyDown = (
-    e: KeyboardEvent<HTMLTextAreaElement>
+    event: KeyboardEvent<HTMLTextAreaElement>
   ) => {
     if (
       commandMenuOpen &&
       filteredCommands.length > 0
     ) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
 
-        setSelectedCommandIndex((current) =>
-          Math.min(
-            current + 1,
-            filteredCommands.length - 1
-          )
+        setSelectedCommandIndex(
+          (current) =>
+            Math.min(
+              current + 1,
+              filteredCommands.length - 1
+            )
         );
 
         return;
       }
 
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
 
-        setSelectedCommandIndex((current) =>
-          Math.max(current - 1, 0)
+        setSelectedCommandIndex(
+          (current) =>
+            Math.max(current - 1, 0)
         );
 
         return;
       }
 
       if (
-        e.key === 'Enter' &&
-        !e.shiftKey
+        event.key === 'Enter' &&
+        !event.shiftKey
       ) {
         const selected =
-          filteredCommands[selectedCommandIndex];
+          filteredCommands[
+            selectedCommandIndex
+          ];
 
         if (selected?.available) {
-          e.preventDefault();
+          event.preventDefault();
           chooseCommand(selected);
           return;
         }
       }
 
-      if (e.key === 'Escape') {
-        e.preventDefault();
+      if (event.key === 'Escape') {
+        event.preventDefault();
         setValue('');
         return;
       }
     }
 
     if (
-      e.key === 'Enter' &&
-      !e.shiftKey
+      event.key === 'Enter' &&
+      !event.shiftKey
     ) {
-      e.preventDefault();
+      event.preventDefault();
       handleSend();
     }
   };
 
   return (
-    <div className="relative border-t border-border-light dark:border-border-dark px-3 sm:px-6 py-3 sm:py-4">
-      {disabled && disabledReason && (
-        <p className="mb-2 text-xs text-danger-light dark:text-danger-dark text-center">
-          {disabledReason}
-        </p>
-      )}
+    <div className="relative shrink-0 bg-transparent px-3 pb-3 pt-2 sm:px-6 sm:pb-4">
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        className="hidden"
+        onChange={handleImageSelected}
+      />
 
-      <div className="relative mx-auto max-w-3xl">
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        onChange={handleFileSelected}
+      />
+
+      <input
+        ref={importInputRef}
+        type="file"
+        accept=".json,application/json"
+        className="hidden"
+        onChange={handleImportSelected}
+      />
+
+      {disabled &&
+        disabledReason && (
+          <p className="mb-2 text-center text-xs text-danger-light dark:text-danger-dark">
+            {disabledReason}
+          </p>
+        )}
+
+      <div className="relative mx-auto w-full max-w-3xl">
         {commandMenuOpen &&
           filteredCommands.length > 0 && (
-            <div className="absolute bottom-full left-0 right-0 z-30 mb-2 overflow-hidden rounded-2xl border border-border-light bg-paper shadow-xl dark:border-border-dark dark:bg-ink-alt">
-              <div className="border-b border-border-light px-3 py-2 dark:border-border-dark">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-light dark:text-muted-dark">
-                  Atlas Actions
-                </p>
+            <div
+              className="
+                absolute bottom-full left-0 right-0
+                z-40 mb-3
+                overflow-hidden rounded-2xl
+                border border-black/10
+                bg-white
+                shadow-2xl
+                dark:border-white/10
+                dark:bg-[#12151c]
+              "
+            >
+              <div className="border-b border-black/5 px-4 py-3 dark:border-white/10">
+                <div className="flex items-center gap-2">
+                  <Sparkles
+                    size={14}
+                    className="text-accent-500"
+                  />
+
+                  <p className="text-xs font-semibold text-ink dark:text-paper">
+                    Atlas Actions
+                  </p>
+                </div>
               </div>
 
-              <div className="p-1.5">
+              <div className="p-2">
                 {filteredCommands.map(
-                  (command, index) => {
+                  (
+                    command,
+                    index
+                  ) => {
                     const CommandIcon =
                       command.icon;
 
@@ -287,8 +493,10 @@ Awaiting command...
                         disabled={
                           !command.available
                         }
-                        onMouseDown={(e) => {
-                          e.preventDefault();
+                        onMouseDown={(
+                          event
+                        ) => {
+                          event.preventDefault();
 
                           if (
                             command.available
@@ -299,36 +507,28 @@ Awaiting command...
                           }
                         }}
                         className={[
-                          'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors',
+                          'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition',
                           selected &&
                           command.available
-                            ? 'bg-paper-alt dark:bg-ink-raised'
+                            ? 'bg-black/[0.05] dark:bg-white/[0.07]'
                             : '',
                           command.available
-                            ? 'hover:bg-paper-alt dark:hover:bg-ink-raised'
-                            : 'cursor-not-allowed opacity-50',
+                            ? 'hover:bg-black/[0.05] dark:hover:bg-white/[0.07]'
+                            : 'cursor-not-allowed opacity-40',
                         ].join(' ')}
                       >
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-paper-alt dark:bg-ink-raised">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-black/[0.05] dark:bg-white/[0.07]">
                           <CommandIcon
-                            size={16}
+                            size={17}
                           />
                         </div>
 
-                        <div className="min-w-0 grow">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-ink dark:text-paper">
-                              {
-                                command.label
-                              }
-                            </span>
-
-                            {!command.available && (
-                              <span className="rounded-full bg-paper-alt px-2 py-0.5 text-[10px] text-muted-light dark:bg-ink-raised dark:text-muted-dark">
-                                Coming soon
-                              </span>
-                            )}
-                          </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-ink dark:text-paper">
+                            {
+                              command.label
+                            }
+                          </p>
 
                           <p className="truncate text-xs text-muted-light dark:text-muted-dark">
                             {
@@ -344,57 +544,229 @@ Awaiting command...
             </div>
           )}
 
-        <div className="flex items-end gap-2 rounded-2xl border border-border-light bg-paper px-3 py-2 shadow-sm transition-colors focus-within:border-accent-500 dark:border-border-dark dark:bg-ink-alt dark:focus-within:border-accent-dark">
-          <textarea
-            ref={textareaRef}
-            value={value}
-            onChange={(e) =>
-              setValue(e.target.value)
-            }
-            onKeyDown={handleKeyDown}
-            disabled={disabled}
-            rows={1}
-            placeholder="Message Atlas AI…"
-            aria-label="Message Atlas AI"
-            className="max-h-[200px] grow resize-none bg-transparent py-1.5 text-[0.95rem] leading-relaxed outline-none placeholder:text-muted-light disabled:cursor-not-allowed dark:placeholder:text-muted-dark"
-          />
+        <div
+          ref={plusMenuRef}
+          className="relative"
+        >
+          {plusMenuOpen && (
+            <div
+              className="
+                absolute bottom-[72px] left-0
+                z-50 w-60
+                overflow-hidden rounded-2xl
+                border border-black/10
+                bg-white
+                p-2
+                shadow-2xl
+                dark:border-white/10
+                dark:bg-[#12151c]
+              "
+            >
+              <button
+                type="button"
+                onClick={() =>
+                  imageInputRef.current?.click()
+                }
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm hover:bg-black/[0.05] dark:hover:bg-white/[0.07]"
+              >
+                <Image size={17} />
+                Upload image
+              </button>
 
-          {isStreaming ? (
-            <IconButton
-              label="Stop generating"
-              onClick={onStop}
-              className="!bg-ink !text-paper hover:!opacity-90 shrink-0 dark:!bg-paper dark:!text-ink"
-            >
-              <Square
-                size={15}
-                fill="currentColor"
-              />
-            </IconButton>
-          ) : (
-            <IconButton
-              label="Send message"
-              onClick={handleSend}
-              disabled={
-                !value.trim() || disabled
-              }
-              className={
-                value.trim() &&
-                !disabled
-                  ? '!bg-accent-500 !text-white hover:!opacity-90 shrink-0 dark:!bg-accent-dark dark:!text-ink'
-                  : 'shrink-0'
-              }
-            >
-              <ArrowUp size={17} />
-            </IconButton>
+              <button
+                type="button"
+                onClick={() =>
+                  fileInputRef.current?.click()
+                }
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm hover:bg-black/[0.05] dark:hover:bg-white/[0.07]"
+              >
+                <Paperclip size={17} />
+                Upload file
+              </button>
+
+              <div className="my-1 h-px bg-black/[0.06] dark:bg-white/10" />
+
+              <button
+                type="button"
+                onClick={() =>
+                  importInputRef.current?.click()
+                }
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm hover:bg-black/[0.05] dark:hover:bg-white/[0.07]"
+              >
+                <FileUp size={17} />
+                Import
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExport}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm hover:bg-black/[0.05] dark:hover:bg-white/[0.07]"
+              >
+                <FileDown size={17} />
+                Export
+              </button>
+
+              <div className="my-1 h-px bg-black/[0.06] dark:bg-white/10" />
+
+              <button
+                type="button"
+                onClick={openAtlasActions}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm hover:bg-black/[0.05] dark:hover:bg-white/[0.07]"
+              >
+                <Sparkles
+                  size={17}
+                  className="text-accent-500"
+                />
+                Atlas Actions
+              </button>
+            </div>
           )}
-        </div>
-      </div>
 
-      <p className="mt-2 text-center text-[11px] text-muted-light dark:text-muted-dark">
-        Atlas AI can make mistakes. Type / for
-        Atlas Actions. Enter to send,
-        Shift+Enter for a new line.
-      </p>
+          <div
+            className="
+              flex items-end gap-2
+              rounded-[26px]
+              border border-black/10
+              bg-white
+              px-2.5 py-2.5
+              shadow-[0_12px_40px_rgba(0,0,0,0.12)]
+              transition
+              focus-within:border-accent-500/50
+              dark:border-white/10
+              dark:bg-[#14171e]
+              dark:shadow-[0_12px_45px_rgba(0,0,0,0.45)]
+            "
+          >
+            <button
+              type="button"
+              aria-label="Add attachment or action"
+              onClick={() =>
+                setPlusMenuOpen(
+                  (open) => !open
+                )
+              }
+              className="
+                flex h-10 w-10
+                shrink-0 items-center justify-center
+                rounded-full
+                text-muted-light
+                transition
+                hover:bg-black/[0.06]
+                hover:text-ink
+                dark:text-muted-dark
+                dark:hover:bg-white/[0.08]
+                dark:hover:text-paper
+              "
+            >
+              <Plus size={21} />
+            </button>
+
+            <textarea
+              ref={textareaRef}
+              value={value}
+              onChange={(event) =>
+                setValue(
+                  event.target.value
+                )
+              }
+              onKeyDown={
+                handleKeyDown
+              }
+              disabled={disabled}
+              rows={1}
+              placeholder="Message Atlas..."
+              aria-label="Message Atlas AI"
+              className="
+                max-h-[200px]
+                min-h-[40px]
+                grow resize-none
+                bg-transparent
+                px-1 py-2
+                text-[0.96rem]
+                leading-relaxed
+                text-ink
+                outline-none
+                placeholder:text-muted-light
+                disabled:cursor-not-allowed
+                dark:text-paper
+                dark:placeholder:text-muted-dark
+              "
+            />
+
+            {!isStreaming && (
+              <button
+                type="button"
+                aria-label="Voice input"
+                title="Voice input — coming next"
+                className="
+                  flex h-10 w-10
+                  shrink-0 items-center justify-center
+                  rounded-full
+                  text-muted-light
+                  transition
+                  hover:bg-black/[0.06]
+                  hover:text-ink
+                  dark:text-muted-dark
+                  dark:hover:bg-white/[0.08]
+                  dark:hover:text-paper
+                "
+              >
+                <Mic size={19} />
+              </button>
+            )}
+
+            {isStreaming ? (
+              <button
+                type="button"
+                aria-label="Stop generating"
+                onClick={onStop}
+                className="
+                  flex h-10 w-10
+                  shrink-0 items-center justify-center
+                  rounded-full
+                  bg-ink text-paper
+                  transition
+                  hover:opacity-90
+                  dark:bg-paper
+                  dark:text-ink
+                "
+              >
+                <Square
+                  size={15}
+                  fill="currentColor"
+                />
+              </button>
+            ) : (
+              <button
+                type="button"
+                aria-label="Send message"
+                onClick={handleSend}
+                disabled={
+                  !value.trim() ||
+                  disabled
+                }
+                className="
+                  flex h-10 w-10
+                  shrink-0 items-center justify-center
+                  rounded-full
+                  bg-accent-500
+                  text-white
+                  transition
+                  hover:opacity-90
+                  disabled:cursor-not-allowed
+                  disabled:opacity-35
+                "
+              >
+                <ArrowUp size={19} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        <p className="mt-2 px-2 text-center text-[10px] text-muted-light dark:text-muted-dark">
+          Atlas AI can make mistakes. Type / for Atlas Actions.
+        </p>
+      </div>
     </div>
   );
 }

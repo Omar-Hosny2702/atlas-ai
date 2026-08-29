@@ -3,12 +3,10 @@ interface LogoProps {
   className?: string;
 }
 
-/**
- * The signature element referenced throughout the UI: concentric contour
- * lines around a summit marker, echoing a topographic map — "Atlas" charting
- * a conversation the way a map charts unfamiliar terrain.
- */
-export function Logo({ size = 28, className }: LogoProps) {
+export function Logo({
+  size = 28,
+  className,
+}: LogoProps) {
   return (
     <svg
       width={size}
@@ -18,30 +16,89 @@ export function Logo({ size = 28, className }: LogoProps) {
       role="img"
       aria-label="Atlas AI"
     >
-      <rect width="64" height="64" rx="14" className="fill-ink dark:fill-ink-raised" />
+      <defs>
+        <linearGradient
+          id="atlas-gradient"
+          x1="10"
+          y1="8"
+          x2="54"
+          y2="56"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop
+            offset="0%"
+            stopColor="#38BDF8"
+          />
+
+          <stop
+            offset="48%"
+            stopColor="#6366F1"
+          />
+
+          <stop
+            offset="100%"
+            stopColor="#A855F7"
+          />
+        </linearGradient>
+
+        <filter
+          id="atlas-glow"
+          x="-40%"
+          y="-40%"
+          width="180%"
+          height="180%"
+        >
+          <feGaussianBlur
+            stdDeviation="2.5"
+            result="blur"
+          />
+
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+
+      {/* Outer diamond */}
       <path
-        d="M 20 30 A 12 10 0 0 1 44 30"
+        d="
+          M32 5
+          L57 32
+          L32 59
+          L7 32
+          Z
+        "
         fill="none"
-        className="stroke-accent-500 dark:stroke-accent-600"
-        strokeWidth="2"
-        strokeLinecap="round"
-        opacity="0.65"
+        stroke="url(#atlas-gradient)"
+        strokeWidth="4"
+        strokeLinejoin="round"
+        filter="url(#atlas-glow)"
       />
+
+      {/* Inner Atlas mark */}
       <path
-        d="M 16 34 A 16 14 0 0 1 48 34"
+        d="
+          M32 17
+          L44 43
+          L32 36
+          L20 43
+          Z
+        "
         fill="none"
-        stroke="#2DD4A8"
-        strokeWidth="2"
+        stroke="url(#atlas-gradient)"
+        strokeWidth="4"
         strokeLinecap="round"
+        strokeLinejoin="round"
       />
-      <path
-        d="M 12 38 A 20 17 0 0 1 52 38"
-        fill="none"
-        stroke="#2DD4A8"
-        strokeWidth="2"
-        strokeLinecap="round"
+
+      {/* Centre point */}
+      <circle
+        cx="32"
+        cy="32"
+        r="3"
+        fill="#E0F2FE"
       />
-      <polygon points="32,20 38,33 32,37 26,33" fill="#D8B54C" />
     </svg>
   );
 }

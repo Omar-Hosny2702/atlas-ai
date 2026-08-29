@@ -76,7 +76,8 @@ export async function handleResearch(
   const { query, conversationId } =
     researchSchema.parse(req.body);
 
-  const originalContent = `/atlas research ${query}`;
+  const originalContent =
+    `/atlas research ${query}`;
 
   await addMessage(
     userId,
@@ -85,13 +86,24 @@ export async function handleResearch(
     originalContent
   );
 
-  const result = await researchTopic(query);
+  const result =
+    await researchTopic(query);
 
   await addMessage(
     userId,
     conversationId,
     'assistant',
-    result.answer
+    result.answer,
+    {
+      metadata: {
+        research: {
+          sources:
+            result.sources,
+          searchQueries:
+            result.searchQueries,
+        },
+      },
+    }
   );
 
   await maybeAutoTitle(

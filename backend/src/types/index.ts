@@ -1,15 +1,53 @@
-export type MessageRole = 'system' | 'user' | 'assistant';
+export type MessageRole =
+  | 'system'
+  | 'user'
+  | 'assistant';
+
+export interface ResearchSource {
+  title: string;
+  url: string;
+}
+
+export interface MessageMetadata {
+  research?: {
+    sources: ResearchSource[];
+    searchQueries?: string[];
+  };
+
+  generatedImage?: {
+    attachmentId?: string;
+    storageUrl?: string;
+    mimeType?: string;
+    alt?: string;
+  };
+
+  attachments?: {
+    id: string;
+    fileName: string;
+    mimeType: string;
+    sizeBytes: number;
+    kind: 'image' | 'file';
+    storageUrl?: string | null;
+  }[];
+
+  [key: string]: unknown;
+}
 
 export interface Message {
   id: string;
   conversationId: string;
   role: MessageRole;
   content: string;
-  createdAt: string; // ISO timestamp
-  /** Present when generation was interrupted by the user (Stop button). */
+  createdAt: string;
+
+  /** Present when generation was interrupted by the user. */
   stopped?: boolean;
+
   /** Present when generation errored out. */
   error?: string | null;
+
+  /** Structured message data such as sources and attachments. */
+  metadata?: MessageMetadata;
 }
 
 export interface Conversation {
@@ -25,11 +63,13 @@ export interface Conversation {
   pinned: boolean;
 }
 
-export interface ConversationWithMessages extends Conversation {
+export interface ConversationWithMessages
+  extends Conversation {
   messages: Message[];
 }
 
-export interface ConversationSummary extends Conversation {
+export interface ConversationSummary
+  extends Conversation {
   messageCount: number;
   lastMessagePreview: string | null;
 }
@@ -37,7 +77,8 @@ export interface ConversationSummary extends Conversation {
 export interface ChatRequestBody {
   conversationId: string;
   content: string;
-  /** Optional per-request overrides; falls back to the conversation's stored settings. */
+
+  /** Optional per-request overrides. */
   temperature?: number;
   maxTokens?: number;
   topP?: number;
@@ -65,8 +106,13 @@ export interface UpdateConversationBody {
 
 export class AppError extends Error {
   statusCode: number;
-  constructor(message: string, statusCode = 400) {
+
+  constructor(
+    message: string,
+    statusCode = 400
+  ) {
     super(message);
+
     this.name = 'AppError';
     this.statusCode = statusCode;
   }
