@@ -22,34 +22,6 @@ export default defineConfig({
     build: {
         outDir: 'dist',
         sourcemap: true,
-        rollupOptions: {
-            output: {
-                manualChunks(id) {
-                    if (!id.includes('node_modules')) {
-                        return;
-                    }
-                    if (id.includes('react-syntax-highlighter') ||
-                        id.includes('refractor') ||
-                        id.includes('highlight.js')) {
-                        return 'syntax';
-                    }
-                    if (id.includes('react-markdown') ||
-                        id.includes('remark-') ||
-                        id.includes('rehype-') ||
-                        id.includes('unified') ||
-                        id.includes('micromark')) {
-                        return 'markdown';
-                    }
-                    if (id.includes('lucide-react')) {
-                        return 'icons';
-                    }
-                    if (id.includes('react-dom') ||
-                        id.includes('/react/')) {
-                        return 'react-vendor';
-                    }
-                    return 'vendor';
-                },
-            },
-        },
+        chunkSizeWarningLimit: 550,
     },
 });
