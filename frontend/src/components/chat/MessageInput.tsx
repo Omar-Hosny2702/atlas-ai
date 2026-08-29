@@ -64,7 +64,7 @@ const COMMANDS: AtlasCommand[] = [
     label: 'Plan',
     description: 'Build a structured plan',
     prefix: '/atlas plan ',
-    available: false,
+    available: true,
     icon: ListTodo,
   },
   {
@@ -72,7 +72,7 @@ const COMMANDS: AtlasCommand[] = [
     label: 'Explain',
     description: 'Explain something clearly',
     prefix: '/atlas explain ',
-    available: false,
+    available: true,
     icon: MessageCircleQuestion,
   },
 ];

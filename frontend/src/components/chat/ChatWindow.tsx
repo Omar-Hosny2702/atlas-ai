@@ -14,6 +14,10 @@ import { ConversationSettingsModal } from '@/components/settings/ConversationSet
 
 import { generateImage } from '@/api/actionsApi';
 import { researchTopic } from '@/api/researchApi';
+import {
+  explainTopic,
+  planGoal,
+} from '@/api/textActionsApi';
 import { addMemory } from '@/api/settingsApi';
 
 import type { Message } from '@/types';
@@ -38,8 +42,11 @@ export function ChatWindow({
   const [conversationSettingsOpen, setConversationSettingsOpen] =
     useState(false);
 
-  const [actionMessages, setActionMessages] = useState<Message[]>([]);
-  const [isRunningAction, setIsRunningAction] = useState(false);
+  const [actionMessages, setActionMessages] =
+    useState<Message[]>([]);
+
+  const [isRunningAction, setIsRunningAction] =
+    useState(false);
 
   const {
     conversation,
@@ -68,15 +75,11 @@ export function ChatWindow({
     send(text);
   };
 
-  // ==========================
-  // IMAGE ACTION
-  // ==========================
-
-  const runImageAction = async (
+  const createActionMessages = (
     originalContent: string,
-    prompt: string
+    loadingText: string
   ) => {
-    if (!conversationId || isRunningAction) return;
+    if (!conversationId) return null;
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
@@ -88,19 +91,60 @@ export function ChatWindow({
 
     const assistantId = crypto.randomUUID();
 
-    const generatingMessage: Message = {
+    const assistantMessage: Message = {
       id: assistantId,
       conversationId,
       role: 'assistant',
-      content: 'Generating image…',
+      content: loadingText,
       createdAt: new Date().toISOString(),
     };
 
     setActionMessages((current) => [
       ...current,
       userMessage,
-      generatingMessage,
+      assistantMessage,
     ]);
+
+    return assistantId;
+  };
+
+  const setActionError = (
+    assistantId: string,
+    error: unknown,
+    fallback: string
+  ) => {
+    const message =
+      error instanceof Error
+        ? error.message
+        : fallback;
+
+    setActionMessages((current) =>
+      current.map((item) =>
+        item.id === assistantId
+          ? {
+              ...item,
+              content: '',
+              error: message,
+            }
+          : item
+      )
+    );
+
+    showToast(message, 'error');
+  };
+
+  const runImageAction = async (
+    originalContent: string,
+    prompt: string
+  ) => {
+    if (!conversationId || isRunningAction) return;
+
+    const assistantId = createActionMessages(
+      originalContent,
+      'Generating image…'
+    );
+
+    if (!assistantId) return;
 
     setIsRunningAction(true);
 
@@ -123,32 +167,15 @@ export function ChatWindow({
         )
       );
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : 'Image generation failed.';
-
-      setActionMessages((current) =>
-        current.map((item) =>
-          item.id === assistantId
-            ? {
-                ...item,
-                content: '',
-                error: message,
-              }
-            : item
-        )
+      setActionError(
+        assistantId,
+        error,
+        'Image generation failed.'
       );
-
-      showToast(message, 'error');
     } finally {
       setIsRunningAction(false);
     }
   };
-
-  // ==========================
-  // RESEARCH ACTION
-  // ==========================
 
   const runResearchAction = async (
     originalContent: string,
@@ -156,29 +183,12 @@ export function ChatWindow({
   ) => {
     if (!conversationId || isRunningAction) return;
 
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      conversationId,
-      role: 'user',
-      content: originalContent,
-      createdAt: new Date().toISOString(),
-    };
+    const assistantId = createActionMessages(
+      originalContent,
+      'Searching the web and analysing sources…'
+    );
 
-    const assistantId = crypto.randomUUID();
-
-    const researchingMessage: Message = {
-      id: assistantId,
-      conversationId,
-      role: 'assistant',
-      content: 'Searching the web and analysing sources…',
-      createdAt: new Date().toISOString(),
-    };
-
-    setActionMessages((current) => [
-      ...current,
-      userMessage,
-      researchingMessage,
-    ]);
+    if (!assistantId) return;
 
     setIsRunningAction(true);
 
@@ -186,49 +196,153 @@ export function ChatWindow({
       const result = await researchTopic(query);
 
       setActionMessages((current) =>
-  current.map((message) =>
-    message.id === assistantId
-      ? {
-          ...message,
-          content: result.answer,
-          research: {
-            sources: result.sources,
-            searchQueries: result.searchQueries,
-          },
-        }
-      : message
-  )
-);
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : 'Research failed.';
-
-      setActionMessages((current) =>
-        current.map((item) =>
-          item.id === assistantId
+        current.map((message) =>
+          message.id === assistantId
             ? {
-                ...item,
-                content: '',
-                error: message,
+                ...message,
+                content: result.answer,
+                research: {
+                  sources: result.sources,
+                  searchQueries: result.searchQueries,
+                },
               }
-            : item
+            : message
         )
       );
-
-      showToast(message, 'error');
+    } catch (error) {
+      setActionError(
+        assistantId,
+        error,
+        'Research failed.'
+      );
     } finally {
       setIsRunningAction(false);
     }
   };
 
-  // ==========================
-  // SEND / ATLAS ACTION ROUTER
-  // ==========================
+  const runExplainAction = async (
+    originalContent: string,
+    topic: string
+  ) => {
+    if (!conversationId || isRunningAction) return;
+
+    const assistantId = createActionMessages(
+      originalContent,
+      'Building a clear explanation…'
+    );
+
+    if (!assistantId) return;
+
+    setIsRunningAction(true);
+
+    try {
+      const result = await explainTopic(topic);
+
+      setActionMessages((current) =>
+        current.map((message) =>
+          message.id === assistantId
+            ? {
+                ...message,
+                content: result.answer,
+              }
+            : message
+        )
+      );
+    } catch (error) {
+      setActionError(
+        assistantId,
+        error,
+        'Explanation failed.'
+      );
+    } finally {
+      setIsRunningAction(false);
+    }
+  };
+
+  const runPlanAction = async (
+    originalContent: string,
+    goal: string
+  ) => {
+    if (!conversationId || isRunningAction) return;
+
+    const assistantId = createActionMessages(
+      originalContent,
+      'Building your plan…'
+    );
+
+    if (!assistantId) return;
+
+    setIsRunningAction(true);
+
+    try {
+      const result = await planGoal(goal);
+
+      setActionMessages((current) =>
+        current.map((message) =>
+          message.id === assistantId
+            ? {
+                ...message,
+                content: result.answer,
+              }
+            : message
+        )
+      );
+    } catch (error) {
+      setActionError(
+        assistantId,
+        error,
+        'Planning failed.'
+      );
+    } finally {
+      setIsRunningAction(false);
+    }
+  };
+
+  const runRememberAction = async (
+    originalContent: string,
+    memory: string
+  ) => {
+    if (!conversationId || isRunningAction) return;
+
+    const assistantId = createActionMessages(
+      originalContent,
+      'Saving to memory…'
+    );
+
+    if (!assistantId) return;
+
+    setIsRunningAction(true);
+
+    try {
+      await addMemory(memory, 'general');
+
+      setActionMessages((current) =>
+        current.map((message) =>
+          message.id === assistantId
+            ? {
+                ...message,
+                content: `✓ Saved to memory: **${memory}**`,
+              }
+            : message
+        )
+      );
+
+      showToast(
+        'Saved to Atlas memory.',
+        'success'
+      );
+    } catch (error) {
+      setActionError(
+        assistantId,
+        error,
+        'Could not save memory.'
+      );
+    } finally {
+      setIsRunningAction(false);
+    }
+  };
 
   const handleSend = (content: string) => {
-    // Remember
     const rememberMatch = content.match(
       /^\/atlas\s+remember\s+(.+)$/i
     );
@@ -236,30 +350,16 @@ export function ChatWindow({
     if (rememberMatch) {
       const memory = rememberMatch[1].trim();
 
-      if (!memory) return;
+      if (!memory || !conversationId) return;
 
-      void (async () => {
-        try {
-          await addMemory(memory, 'general');
-
-          showToast(
-            'Saved to Atlas memory.',
-            'success'
-          );
-        } catch (error) {
-          const message =
-            error instanceof Error
-              ? error.message
-              : 'Could not save memory.';
-
-          showToast(message, 'error');
-        }
-      })();
+      void runRememberAction(
+        content,
+        memory
+      );
 
       return;
     }
 
-    // Image
     const imageMatch = content.match(
       /^\/atlas\s+image\s+(.+)$/i
     );
@@ -269,11 +369,14 @@ export function ChatWindow({
 
       if (!prompt || !conversationId) return;
 
-      void runImageAction(content, prompt);
+      void runImageAction(
+        content,
+        prompt
+      );
+
       return;
     }
 
-    // Research
     const researchMatch = content.match(
       /^\/atlas\s+research\s+(.+)$/i
     );
@@ -283,16 +386,54 @@ export function ChatWindow({
 
       if (!query || !conversationId) return;
 
-      void runResearchAction(content, query);
+      void runResearchAction(
+        content,
+        query
+      );
+
       return;
     }
 
-    // Normal Atlas chat
+    const explainMatch = content.match(
+      /^\/atlas\s+explain\s+(.+)$/i
+    );
+
+    if (explainMatch) {
+      const topic = explainMatch[1].trim();
+
+      if (!topic || !conversationId) return;
+
+      void runExplainAction(
+        content,
+        topic
+      );
+
+      return;
+    }
+
+    const planMatch = content.match(
+      /^\/atlas\s+plan\s+(.+)$/i
+    );
+
+    if (planMatch) {
+      const goal = planMatch[1].trim();
+
+      if (!goal || !conversationId) return;
+
+      void runPlanAction(
+        content,
+        goal
+      );
+
+      return;
+    }
+
     send(content);
   };
 
   const handleNewChat = async () => {
-    const id = await createNewConversation();
+    const id =
+      await createNewConversation();
 
     if (id) {
       selectConversation(id);
@@ -340,7 +481,8 @@ export function ChatWindow({
 
   const hasMessages =
     visibleMessages.filter(
-      (message) => message.role !== 'system'
+      (message) =>
+        message.role !== 'system'
     ).length > 0;
 
   return (
@@ -359,7 +501,8 @@ export function ChatWindow({
             <h2 className="font-display font-semibold text-sm truncate">
               {loading
                 ? 'Loading…'
-                : conversation?.title ?? 'New chat'}
+                : conversation?.title ??
+                  'New chat'}
             </h2>
 
             {conversation && (
@@ -390,7 +533,8 @@ export function ChatWindow({
         <MessageList
           messages={visibleMessages}
           isStreaming={
-            isStreaming || isRunningAction
+            isStreaming ||
+            isRunningAction
           }
           onRegenerate={regenerate}
         />
@@ -400,7 +544,8 @@ export function ChatWindow({
         onSend={handleSend}
         onStop={stop}
         isStreaming={
-          isStreaming || isRunningAction
+          isStreaming ||
+          isRunningAction
         }
       />
 

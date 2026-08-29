@@ -3,6 +3,10 @@ import { z } from 'zod';
 
 import { generateImage } from '../services/imageGenerationService.js';
 import { researchTopic } from '../services/researchService.js';
+import {
+  explainTopic,
+  planGoal,
+} from '../services/textActionService.js';
 
 export const generateImageSchema = z.object({
   prompt: z
@@ -18,6 +22,22 @@ export const researchSchema = z.object({
     .trim()
     .min(1, 'Research query cannot be empty.')
     .max(4000, 'Research query is too long.'),
+});
+
+export const explainSchema = z.object({
+  topic: z
+    .string()
+    .trim()
+    .min(1, 'Explain topic cannot be empty.')
+    .max(4000, 'Explain topic is too long.'),
+});
+
+export const planSchema = z.object({
+  goal: z
+    .string()
+    .trim()
+    .min(1, 'Plan goal cannot be empty.')
+    .max(4000, 'Plan goal is too long.'),
 });
 
 export async function handleGenerateImage(
@@ -46,5 +66,33 @@ export async function handleResearch(
   res.json({
     type: 'research',
     ...result,
+  });
+}
+
+export async function handleExplain(
+  req: Request,
+  res: Response
+): Promise<void> {
+  const { topic } = explainSchema.parse(req.body);
+
+  const answer = await explainTopic(topic);
+
+  res.json({
+    type: 'explain',
+    answer,
+  });
+}
+
+export async function handlePlan(
+  req: Request,
+  res: Response
+): Promise<void> {
+  const { goal } = planSchema.parse(req.body);
+
+  const answer = await planGoal(goal);
+
+  res.json({
+    type: 'plan',
+    answer,
   });
 }
