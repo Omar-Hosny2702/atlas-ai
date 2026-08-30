@@ -925,15 +925,24 @@ export function ChatWindow({
       return;
     }
 
-    /*
-     * For now normal text sending stays exactly
-     * as it was.
-     *
-     * The uploaded attachments remain selected
-     * until we wire their IDs into message
-     * metadata in the next step.
-     */
-    send(content);
+    const attachments =
+  pendingAttachments.map(
+    (attachment) => ({
+      id: attachment.id,
+      fileName: attachment.fileName,
+      mimeType: attachment.mimeType,
+      sizeBytes: attachment.sizeBytes,
+      kind: attachment.kind,
+      storageUrl: attachment.url,
+    })
+  );
+
+void send(
+  content,
+  attachments
+).then(() => {
+  setPendingAttachments([]);
+});
   };
 
   const handleNewChat =
