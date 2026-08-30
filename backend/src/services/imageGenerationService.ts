@@ -1,13 +1,13 @@
-import { GoogleGenAI } from '@google/genai';
 import { AppError } from '../types/index.js';
 
-const apiKey = process.env.GEMINI_API_KEY;
+const accountId =
+  process.env.CLOUDFLARE_ACCOUNT_ID;
 
-const genAI = apiKey
-  ? new GoogleGenAI({ apiKey })
-  : null;
+const apiToken =
+  process.env.CLOUDFLARE_API_TOKEN;
 
-const IMAGE_MODEL = 'gemini-3.1-flash-image';
+const IMAGE_MODEL =
+  '@cf/black-forest-labs/flux-1-schnell';
 
 export interface GeneratedImage {
   mimeType: string;
@@ -17,76 +17,82 @@ export interface GeneratedImage {
 export async function generateImage(
   prompt: string
 ): Promise<GeneratedImage> {
-  if (!genAI) {
+  if (!accountId || !apiToken) {
     throw new AppError(
-      'Gemini image generation is not configured.',
+      'Cloudflare image generation is not configured.',
       503
     );
   }
 
   try {
-    const response = await genAI.models.generateContent({
-      model: IMAGE_MODEL,
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text: `Create an image based on this request:\n\n${prompt}`,
-            },
-          ],
+    const response = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${IMAGE_MODEL}`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiToken}`,
+          'Content-Type': 'application/json',
         },
-      ],
-    });
-
-    const parts =
-      response.candidates?.[0]?.content?.parts ?? [];
-
-    for (const part of parts) {
-      if (part.inlineData?.data) {
-        return {
-          mimeType:
-            part.inlineData.mimeType || 'image/png',
-          data: part.inlineData.data,
-        };
+        body: JSON.stringify({
+          prompt: `Create an image based on this request:\n\n${prompt}`,
+        }),
       }
-    }
-
-    throw new AppError(
-      'The image model did not return an image.',
-      502
     );
-  } catch (error) {
-    const status =
-      typeof error === 'object' &&
-      error !== null &&
-      'status' in error
-        ? Number(
-            (error as { status?: unknown }).status
-          )
-        : undefined;
 
-    if (status === 429) {
-      throw new AppError(
-        'Atlas image generation is temporarily unavailable because the Gemini quota has been reached. Please try again later.',
-        429
-      );
-    }
+    if (!response.ok) {
+      if (response.status === 429) {
+        throw new AppError(
+          'Atlas image generation rate limit has been reached. Please try again later.',
+          429
+        );
+      }
 
-    if (status === 401 || status === 403) {
+      if (
+        response.status === 401 ||
+        response.status === 403
+      ) {
+        throw new AppError(
+          'Atlas could not authenticate with the image generation service.',
+          502
+        );
+      }
+
+      if (response.status === 400) {
+        throw new AppError(
+          'The image generation request was rejected by Cloudflare.',
+          400
+        );
+      }
+
+      const errorText =
+        await response.text();
+
       throw new AppError(
-        'Atlas could not authenticate with the image generation service.',
+        `Cloudflare image generation failed: ${errorText}`,
         502
       );
     }
 
-    if (status === 400) {
-      throw new AppError(
-        'The image generation request was rejected by Gemini.',
-        400
-      );
+    const arrayBuffer =
+      await response.arrayBuffer();
+
+    const base64 =
+      Buffer.from(
+        arrayBuffer
+      ).toString('base64');
+
+    return {
+      mimeType: 'image/png',
+      data: base64,
+    };
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
     }
 
-    throw error;
+    throw new AppError(
+      'Atlas image generation failed unexpectedly.',
+      502
+    );
   }
 }
