@@ -3,6 +3,7 @@ import { Router } from 'express';
 import {
   handleCreateUploadTicket,
   handleAttachmentUpload,
+  handleCompleteAttachmentUpload,
 } from '../controllers/attachmentController.js';
 
 import { requireAuth } from '../middleware/auth.js';
@@ -21,6 +22,11 @@ router.post(
 router.post(
   '/upload',
   handleAttachmentUpload
+);
+router.post(
+  '/complete',
+  requireAuth,
+  handleCompleteAttachmentUpload
 );
 
 export default router;

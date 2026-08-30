@@ -521,3 +521,64 @@ export async function handleAttachmentUpload(
     next(error);
   }
 }
+export async function handleCompleteAttachmentUpload(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId =
+      req.auth!.userId;
+
+    const {
+      attachmentId,
+      pathname,
+      url,
+    } = req.body as {
+      attachmentId?: string;
+      pathname?: string;
+      url?: string;
+    };
+
+    if (
+      !attachmentId ||
+      !pathname ||
+      !url
+    ) {
+      throw new AppError(
+        'Missing attachment upload information.',
+        400
+      );
+    }
+
+    const sql =
+      await getDatabase();
+
+    const rows =
+      await sql<
+        { id: string }[]
+      >`
+        UPDATE attachments
+        SET
+          storage_key = ${pathname},
+          storage_url = ${url},
+          status = 'uploaded'
+        WHERE id = ${attachmentId}
+          AND user_id = ${userId}
+        RETURNING id
+      `;
+
+    if (!rows[0]) {
+      throw new AppError(
+        'Attachment not found.',
+        404
+      );
+    }
+
+    res.status(200).json({
+      completed: true,
+    });
+  } catch (error) {
+    next(error);
+  }
+}

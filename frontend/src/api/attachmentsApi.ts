@@ -90,9 +90,25 @@ export async function uploadAttachment({
       }
     );
 
+  await apiFetch(
+    '/attachments/complete',
+    {
+      method: 'POST',
+
+      body: JSON.stringify({
+        attachmentId,
+        pathname:
+          blob.pathname,
+        url:
+          blob.url,
+      }),
+    }
+  );
+
   return {
     attachmentId,
-    url: blob.url,
+    url:
+      blob.url,
     pathname:
       blob.pathname,
     contentType:
