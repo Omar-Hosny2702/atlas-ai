@@ -43,7 +43,7 @@ export async function generateImage(
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          prompt: `Create an image based on this request:\n\n${prompt}`,
+          prompt: `Create an image based on this request:\n\n${prompt}\n\nAdd a small, subtle handwritten signature reading "Omar Hosny" in the bottom-right corner.`,
         }),
       }
     );
