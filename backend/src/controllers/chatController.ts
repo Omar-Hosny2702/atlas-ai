@@ -176,9 +176,9 @@ async function buildAttachmentMetadata(
           ${userId}
         AND conversation_id =
           ${conversationId}
-        AND id = ANY(
-          ${attachmentIds}
-        )
+        AND id IN ${sql(
+          attachmentIds
+        )}
     `;
 
   if (
@@ -191,73 +191,83 @@ async function buildAttachmentMetadata(
     );
   }
 
- let currentRows = rows;
+  let currentRows =
+    rows;
 
-for (let attempt = 0; attempt < 12; attempt++) {
-  const stillProcessing =
-    currentRows.some(
+  for (
+    let attempt = 0;
+    attempt < 12;
+    attempt++
+  ) {
+    const stillProcessing =
+      currentRows.some(
+        (row) =>
+          row.status !==
+          'uploaded'
+      );
+
+    if (
+      !stillProcessing
+    ) {
+      break;
+    }
+
+    await new Promise(
+      (resolve) =>
+        setTimeout(
+          resolve,
+          250
+        )
+    );
+
+    currentRows =
+      await sql<
+        {
+          id: string;
+          file_name: string;
+          mime_type: string;
+          size_bytes: number;
+          kind:
+            | 'image'
+            | 'file';
+          storage_url:
+            | string
+            | null;
+          status: string;
+        }[]
+      >`
+        SELECT
+          id,
+          file_name,
+          mime_type,
+          size_bytes,
+          kind,
+          storage_url,
+          status
+        FROM attachments
+        WHERE user_id =
+            ${userId}
+          AND conversation_id =
+            ${conversationId}
+          AND id IN ${sql(
+            attachmentIds
+          )}
+      `;
+  }
+
+  const invalid =
+    currentRows.find(
       (row) =>
         row.status !==
         'uploaded'
     );
 
-  if (!stillProcessing) {
-    break;
+  if (invalid) {
+    throw new AppError(
+      'The attachment upload has not finished yet. Please try again.',
+      409
+    );
   }
-
-  await new Promise(
-    (resolve) =>
-      setTimeout(resolve, 250)
-  );
-
-  currentRows =
-    await sql<
-      {
-        id: string;
-        file_name: string;
-        mime_type: string;
-        size_bytes: number;
-        kind:
-          | 'image'
-          | 'file';
-        storage_url:
-          | string
-          | null;
-        status: string;
-      }[]
-    >`
-      SELECT
-        id,
-        file_name,
-        mime_type,
-        size_bytes,
-        kind,
-        storage_url,
-        status
-      FROM attachments
-      WHERE user_id =
-          ${userId}
-        AND conversation_id =
-          ${conversationId}
-        AND id = ANY(
-          ${attachmentIds}
-        )
-    `;
-}
-
-const invalid =
-  currentRows.find(
-    (row) =>
-      row.status !==
-      'uploaded'
-  );
-
-if (invalid) {
-  throw new AppError(
-    'The attachment upload has not finished yet. Please try again.',
-    409
-  );
-}
 
   const byId =
     new Map(
@@ -272,14 +282,17 @@ if (invalid) {
   return {
     attachments:
       attachmentIds.map(
-        (attachmentId) => {
+        (
+          attachmentId
+        ) => {
           const row =
             byId.get(
               attachmentId
             )!;
 
           return {
-            id: row.id,
+            id:
+              row.id,
 
             fileName:
               row.file_name,
@@ -327,9 +340,9 @@ async function linkAttachmentsToMessage(
         ${userId}
       AND conversation_id =
         ${conversationId}
-      AND id = ANY(
-        ${attachmentIds}
-      )
+      AND id IN ${sql(
+        attachmentIds
+      )}
   `;
 }
 
@@ -508,7 +521,8 @@ Follow the user's personalisation naturally. Use memories only when relevant.
     );
   } catch (err) {
     const message =
-      err instanceof AppError
+      err instanceof
+      AppError
         ? err.message
         : 'The assistant ran into an unexpected error.';
 
@@ -588,7 +602,8 @@ export async function sendMessage(
     topP !==
       undefined ||
     (
-      model !== undefined &&
+      model !==
+        undefined &&
       model !==
         conversation.model
     )
@@ -765,6 +780,7 @@ export async function stopGeneration(
   res.status(
     200
   ).json({
-    stopped: true,
+    stopped:
+      true,
   });
 }
