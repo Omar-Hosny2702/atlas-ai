@@ -65,14 +65,12 @@ function rowToMessage(
 ): Message {
   return {
     id: row.id,
-    conversationId:
-      row.conversation_id,
+    conversationId: row.conversation_id,
     role: row.role,
     content: row.content,
     stopped: Boolean(row.stopped),
     error: row.error,
-    metadata:
-      row.metadata ?? {},
+    metadata: row.metadata ?? {},
     createdAt: row.created_at,
   };
 }
@@ -368,14 +366,15 @@ export async function touchConversation(
 ): Promise<void> {
   const sql = await getDatabase();
 
-  const result = await sql`
-    UPDATE conversations
-    SET updated_at =
-      ${new Date().toISOString()}
-    WHERE id = ${id}
-      AND user_id = ${userId}
-    RETURNING id
-  `;
+  const result =
+    await sql`
+      UPDATE conversations
+      SET updated_at =
+        ${new Date().toISOString()}
+      WHERE id = ${id}
+        AND user_id = ${userId}
+      RETURNING id
+    `;
 
   if (
     result.length === 0
@@ -393,12 +392,13 @@ export async function deleteConversation(
 ): Promise<void> {
   const sql = await getDatabase();
 
-  const result = await sql`
-    DELETE FROM conversations
-    WHERE id = ${id}
-      AND user_id = ${userId}
-    RETURNING id
-  `;
+  const result =
+    await sql`
+      DELETE FROM conversations
+      WHERE id = ${id}
+        AND user_id = ${userId}
+      RETURNING id
+    `;
 
   if (
     result.length === 0
@@ -564,12 +564,12 @@ export async function addMessage(
       ${row.stopped},
       ${row.error},
       ${sql.json(
-  JSON.parse(
-    JSON.stringify(
-      row.metadata ?? {}
-    )
-  )
-)},
+        JSON.parse(
+          JSON.stringify(
+            row.metadata ?? {}
+          )
+        )
+      )},
       ${row.created_at}
     )
   `;
@@ -579,19 +579,24 @@ export async function addMessage(
     conversationId
   );
 
-  return rowToMessage(row);
+  return rowToMessage(
+    row
+  );
 }
 
 export async function deleteMessage(
   messageId: string
 ): Promise<void> {
-  const sql = await getDatabase();
+  const sql =
+    await getDatabase();
 
-  const result = await sql`
-    DELETE FROM messages
-    WHERE id = ${messageId}
-    RETURNING id
-  `;
+  const result =
+    await sql`
+      DELETE FROM messages
+      WHERE id =
+        ${messageId}
+      RETURNING id
+    `;
 
   if (
     result.length === 0
@@ -608,7 +613,8 @@ export async function deleteMessagesFrom(
   conversationId: string,
   fromCreatedAt: string
 ): Promise<void> {
-  const sql = await getDatabase();
+  const sql =
+    await getDatabase();
 
   const owns =
     await sql`
@@ -643,7 +649,8 @@ export async function getMessages(
   userId: string,
   conversationId: string
 ): Promise<Message[]> {
-  const sql = await getDatabase();
+  const sql =
+    await getDatabase();
 
   const owns =
     await sql`
@@ -684,7 +691,8 @@ export async function maybeAutoTitle(
   conversationId: string,
   firstUserMessage: string
 ): Promise<void> {
-  const sql = await getDatabase();
+  const sql =
+    await getDatabase();
 
   const rows =
     await sql<
@@ -701,11 +709,13 @@ export async function maybeAutoTitle(
       LIMIT 1
     `;
 
-  const row = rows[0];
+  const row =
+    rows[0];
 
   if (
     !row ||
-    row.title !== 'New chat'
+    row.title !==
+      'New chat'
   ) {
     return;
   }
@@ -713,12 +723,16 @@ export async function maybeAutoTitle(
   const title =
     firstUserMessage
       .trim()
-      .slice(0, 60) ||
+      .slice(
+        0,
+        60
+      ) ||
     'New chat';
 
   await sql`
     UPDATE conversations
-    SET title = ${title}
+    SET title =
+      ${title}
     WHERE id =
       ${conversationId}
       AND user_id =
@@ -741,7 +755,7 @@ export function buildPromptHistory(
   messages: Message[]
 ): Pick<
   Message,
-  'role' | 'content'
+  'role' | 'content' | 'metadata'
 >[] {
   const modelDef =
     getModelById(
@@ -763,21 +777,31 @@ export function buildPromptHistory(
       1024
     );
 
-  const system =
+  const system: Pick<
+    Message,
+    'role' | 'content' | 'metadata'
+  >[] =
     conversation.systemPrompt.trim()
       ? [
           {
             role:
               'system' as const,
+
             content:
               conversation.systemPrompt,
+
+            metadata:
+              {},
           },
         ]
       : [];
 
   const systemTokens =
     system.reduce(
-      (sum, message) =>
+      (
+        sum,
+        message
+      ) =>
         sum +
         estimateTokens(
           message.content
@@ -787,7 +811,7 @@ export function buildPromptHistory(
 
   const kept: Pick<
     Message,
-    'role' | 'content'
+    'role' | 'content' | 'metadata'
   >[] = [];
 
   let used =
@@ -818,11 +842,17 @@ export function buildPromptHistory(
     kept.unshift({
       role:
         message.role,
+
       content:
         message.content,
+
+      metadata:
+        message.metadata ??
+        {},
     });
 
-    used += tokens;
+    used +=
+      tokens;
   }
 
   return [
