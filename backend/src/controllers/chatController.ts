@@ -191,23 +191,77 @@ async function buildAttachmentMetadata(
     );
   }
 
-  const invalid =
-    rows.find(
+ let currentRows = rows;
+
+for (let attempt = 0; attempt < 12; attempt++) {
+  const stillProcessing =
+    currentRows.some(
       (row) =>
         row.status !==
         'uploaded'
     );
 
-  if (invalid) {
-    throw new AppError(
-      'One or more attachments are still processing. Try sending again in a moment.',
-      409
-    );
+  if (!stillProcessing) {
+    break;
   }
+
+  await new Promise(
+    (resolve) =>
+      setTimeout(resolve, 250)
+  );
+
+  currentRows =
+    await sql<
+      {
+        id: string;
+        file_name: string;
+        mime_type: string;
+        size_bytes: number;
+        kind:
+          | 'image'
+          | 'file';
+        storage_url:
+          | string
+          | null;
+        status: string;
+      }[]
+    >`
+      SELECT
+        id,
+        file_name,
+        mime_type,
+        size_bytes,
+        kind,
+        storage_url,
+        status
+      FROM attachments
+      WHERE user_id =
+          ${userId}
+        AND conversation_id =
+          ${conversationId}
+        AND id = ANY(
+          ${attachmentIds}
+        )
+    `;
+}
+
+const invalid =
+  currentRows.find(
+    (row) =>
+      row.status !==
+      'uploaded'
+  );
+
+if (invalid) {
+  throw new AppError(
+    'The attachment upload has not finished yet. Please try again.',
+    409
+  );
+}
 
   const byId =
     new Map(
-      rows.map(
+      currentRows.map(
         (row) => [
           row.id,
           row,
