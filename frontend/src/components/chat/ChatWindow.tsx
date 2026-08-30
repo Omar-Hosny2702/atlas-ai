@@ -74,6 +74,10 @@ import type {
   Message,
 } from '@/types';
 
+import {
+  useAuth,
+} from '@/auth/AuthContext';
+
 interface ChatWindowProps {
   conversationId:
     string | null;
@@ -180,6 +184,22 @@ export function ChatWindow({
     showToast,
   } =
     useToast();
+
+  const {
+  session,
+} =
+  useAuth();
+
+const displayName =
+  session?.user?.name ||
+  session?.user?.email?.split('@')[0] ||
+  'there';
+
+const firstName =
+  displayName
+    .trim()
+    .split(/\s+/)[0] ||
+  'there';
 
   const [
     conversationSettingsOpen,
