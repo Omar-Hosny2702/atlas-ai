@@ -31,6 +31,8 @@ interface MessageInputProps {
   onImport?: (file: File) => void;
   onExport?: () => void;
 
+  hasAttachments?: boolean;
+
   isStreaming: boolean;
   disabled?: boolean;
   disabledReason?: string;
@@ -97,11 +99,13 @@ export function MessageInput({
   onAttachFile,
   onImport,
   onExport,
+  hasAttachments = false,
   isStreaming,
   disabled,
   disabledReason,
 }: MessageInputProps) {
-  const [value, setValue] = useState('');
+  const [value, setValue] =
+    useState('');
 
   const [
     selectedCommandIndex,
@@ -114,19 +118,29 @@ export function MessageInput({
   ] = useState(false);
 
   const textareaRef =
-    useRef<HTMLTextAreaElement>(null);
+    useRef<HTMLTextAreaElement>(
+      null
+    );
 
   const plusMenuRef =
-    useRef<HTMLDivElement>(null);
+    useRef<HTMLDivElement>(
+      null
+    );
 
   const imageInputRef =
-    useRef<HTMLInputElement>(null);
+    useRef<HTMLInputElement>(
+      null
+    );
 
   const fileInputRef =
-    useRef<HTMLInputElement>(null);
+    useRef<HTMLInputElement>(
+      null
+    );
 
   const importInputRef =
-    useRef<HTMLInputElement>(null);
+    useRef<HTMLInputElement>(
+      null
+    );
 
   const trimmedStart =
     value.trimStart();
@@ -134,63 +148,99 @@ export function MessageInput({
   const commandMenuOpen =
     !isStreaming &&
     !disabled &&
-    trimmedStart.startsWith('/') &&
-    !trimmedStart.startsWith('/atlas ');
+    trimmedStart.startsWith(
+      '/'
+    ) &&
+    !trimmedStart.startsWith(
+      '/atlas '
+    );
 
-  const commandSearch = trimmedStart
-    .slice(1)
-    .trim()
-    .toLowerCase();
+  const commandSearch =
+    trimmedStart
+      .slice(1)
+      .trim()
+      .toLowerCase();
 
   const filteredCommands =
-    COMMANDS.filter((command) => {
-      if (!commandSearch) {
-        return true;
+    COMMANDS.filter(
+      (command) => {
+        if (
+          !commandSearch
+        ) {
+          return true;
+        }
+
+        return (
+          command.label
+            .toLowerCase()
+            .includes(
+              commandSearch
+            ) ||
+          command.id
+            .toLowerCase()
+            .includes(
+              commandSearch
+            )
+        );
+      }
+    );
+
+  const canSend =
+    !disabled &&
+    !isStreaming &&
+    (
+      value.trim()
+        .length > 0 ||
+      hasAttachments
+    );
+
+  useEffect(
+    () => {
+      const element =
+        textareaRef.current;
+
+      if (!element) {
+        return;
       }
 
-      return (
-        command.label
-          .toLowerCase()
-          .includes(commandSearch) ||
-        command.id
-          .toLowerCase()
-          .includes(commandSearch)
+      element.style.height =
+        'auto';
+
+      element.style.height =
+        `${Math.min(
+          element.scrollHeight,
+          MAX_HEIGHT_PX
+        )}px`;
+    },
+    [value]
+  );
+
+  useEffect(
+    () => {
+      setSelectedCommandIndex(
+        0
       );
-    });
+    },
+    [commandSearch]
+  );
 
   useEffect(() => {
-    const element =
-      textareaRef.current;
-
-    if (!element) {
-      return;
-    }
-
-    element.style.height = 'auto';
-
-    element.style.height = `${Math.min(
-      element.scrollHeight,
-      MAX_HEIGHT_PX
-    )}px`;
-  }, [value]);
-
-  useEffect(() => {
-    setSelectedCommandIndex(0);
-  }, [commandSearch]);
-
-  useEffect(() => {
-    const handleOutsideClick = (
-      event: MouseEvent
-    ) => {
-      if (
-        plusMenuRef.current &&
-        !plusMenuRef.current.contains(
-          event.target as Node
-        )
-      ) {
-        setPlusMenuOpen(false);
-      }
-    };
+    const handleOutsideClick =
+      (
+        event:
+          MouseEvent
+      ) => {
+        if (
+          plusMenuRef.current &&
+          !plusMenuRef.current.contains(
+            event.target as Node
+          )
+        ) {
+          setPlusMenuOpen(
+            false
+          );
+        }
+      };
 
     document.addEventListener(
       'mousedown',
@@ -205,113 +255,173 @@ export function MessageInput({
     };
   }, []);
 
-  const focusComposer = () => {
-    requestAnimationFrame(() => {
-      textareaRef.current?.focus();
-    });
-  };
-
-  const chooseCommand = (
-    command: AtlasCommand
-  ) => {
-    if (!command.available) {
-      return;
-    }
-
-    setValue(command.prefix);
-    setPlusMenuOpen(false);
-
-    requestAnimationFrame(() => {
-      textareaRef.current?.focus();
-
-      const length =
-        command.prefix.length;
-
-      textareaRef.current?.setSelectionRange(
-        length,
-        length
+  const focusComposer =
+    () => {
+      requestAnimationFrame(
+        () => {
+          textareaRef.current
+            ?.focus();
+        }
       );
-    });
-  };
+    };
 
-  const openAtlasActions = () => {
-    setValue('/');
-    setPlusMenuOpen(false);
-    focusComposer();
-  };
+  const chooseCommand =
+    (
+      command:
+        AtlasCommand
+    ) => {
+      if (
+        !command.available
+      ) {
+        return;
+      }
 
-  const handleImageSelected = (
-    event: ChangeEvent<HTMLInputElement>
-  ) => {
-    const file =
-      event.target.files?.[0];
+      setValue(
+        command.prefix
+      );
 
-    event.target.value = '';
+      setPlusMenuOpen(
+        false
+      );
 
-    if (!file) {
-      return;
-    }
+      requestAnimationFrame(
+        () => {
+          textareaRef.current
+            ?.focus();
 
-    onAttachImage?.(file);
-    setPlusMenuOpen(false);
-  };
+          const length =
+            command.prefix
+              .length;
 
-  const handleFileSelected = (
-    event: ChangeEvent<HTMLInputElement>
-  ) => {
-    const file =
-      event.target.files?.[0];
+          textareaRef.current
+            ?.setSelectionRange(
+              length,
+              length
+            );
+        }
+      );
+    };
 
-    event.target.value = '';
+  const openAtlasActions =
+    () => {
+      setValue('/');
 
-    if (!file) {
-      return;
-    }
+      setPlusMenuOpen(
+        false
+      );
 
-    onAttachFile?.(file);
-    setPlusMenuOpen(false);
-  };
+      focusComposer();
+    };
 
-  const handleImportSelected = (
-    event: ChangeEvent<HTMLInputElement>
-  ) => {
-    const file =
-      event.target.files?.[0];
+  const handleImageSelected =
+    (
+      event:
+        ChangeEvent<HTMLInputElement>
+    ) => {
+      const file =
+        event.target.files
+          ?.[0];
 
-    event.target.value = '';
+      event.target.value =
+        '';
 
-    if (!file) {
-      return;
-    }
+      if (!file) {
+        return;
+      }
 
-    onImport?.(file);
-    setPlusMenuOpen(false);
-  };
+      onAttachImage?.(
+        file
+      );
 
-  const handleExport = () => {
-    setPlusMenuOpen(false);
-    onExport?.();
-  };
+      setPlusMenuOpen(
+        false
+      );
+    };
 
-  const handleSend = () => {
-    const trimmed = value.trim();
+  const handleFileSelected =
+    (
+      event:
+        ChangeEvent<HTMLInputElement>
+    ) => {
+      const file =
+        event.target.files
+          ?.[0];
 
-    if (
-      !trimmed ||
-      isStreaming ||
-      disabled
-    ) {
-      return;
-    }
+      event.target.value =
+        '';
 
-    // ==========================
-    // ATLAS MOTHER KEY
-    // ==========================
-    if (
-      trimmed.toLowerCase() ===
-      'there is no map'
-    ) {
-      onSend(`SYSTEM://ATLAS_CORE
+      if (!file) {
+        return;
+      }
+
+      onAttachFile?.(
+        file
+      );
+
+      setPlusMenuOpen(
+        false
+      );
+    };
+
+  const handleImportSelected =
+    (
+      event:
+        ChangeEvent<HTMLInputElement>
+    ) => {
+      const file =
+        event.target.files
+          ?.[0];
+
+      event.target.value =
+        '';
+
+      if (!file) {
+        return;
+      }
+
+      onImport?.(
+        file
+      );
+
+      setPlusMenuOpen(
+        false
+      );
+    };
+
+  const handleExport =
+    () => {
+      setPlusMenuOpen(
+        false
+      );
+
+      onExport?.();
+    };
+
+  const handleSend =
+    () => {
+      const trimmed =
+        value.trim();
+
+      if (
+        (
+          !trimmed &&
+          !hasAttachments
+        ) ||
+        isStreaming ||
+        disabled
+      ) {
+        return;
+      }
+
+      // ==========================
+      // ATLAS MOTHER KEY
+      // ==========================
+      if (
+        trimmed &&
+        trimmed.toLowerCase() ===
+          'there is no map'
+      ) {
+        onSend(`SYSTEM://ATLAS_CORE
 
 ████████████████████████████
 
@@ -339,115 +449,168 @@ Awaiting command...
 
 ████████████████████████████`);
 
+        setValue('');
+
+        return;
+      }
+
+      /*
+       * Empty text is now valid when an
+       * attachment is waiting to be sent.
+       */
+      onSend(
+        trimmed
+      );
+
       setValue('');
-      return;
-    }
 
-    onSend(trimmed);
+      setPlusMenuOpen(
+        false
+      );
+    };
 
-    setValue('');
-    setPlusMenuOpen(false);
-  };
-
-  const handleKeyDown = (
-    event: KeyboardEvent<HTMLTextAreaElement>
-  ) => {
-    if (
-      commandMenuOpen &&
-      filteredCommands.length > 0
-    ) {
-      if (event.key === 'ArrowDown') {
-        event.preventDefault();
-
-        setSelectedCommandIndex(
-          (current) =>
-            Math.min(
-              current + 1,
-              filteredCommands.length - 1
-            )
-        );
-
-        return;
-      }
-
-      if (event.key === 'ArrowUp') {
-        event.preventDefault();
-
-        setSelectedCommandIndex(
-          (current) =>
-            Math.max(current - 1, 0)
-        );
-
-        return;
-      }
-
+  const handleKeyDown =
+    (
+      event:
+        KeyboardEvent<HTMLTextAreaElement>
+    ) => {
       if (
-        event.key === 'Enter' &&
-        !event.shiftKey
+        commandMenuOpen &&
+        filteredCommands.length >
+          0
       ) {
-        const selected =
-          filteredCommands[
-            selectedCommandIndex
-          ];
-
-        if (selected?.available) {
+        if (
+          event.key ===
+          'ArrowDown'
+        ) {
           event.preventDefault();
-          chooseCommand(selected);
+
+          setSelectedCommandIndex(
+            (current) =>
+              Math.min(
+                current + 1,
+                filteredCommands.length -
+                  1
+              )
+          );
+
+          return;
+        }
+
+        if (
+          event.key ===
+          'ArrowUp'
+        ) {
+          event.preventDefault();
+
+          setSelectedCommandIndex(
+            (current) =>
+              Math.max(
+                current - 1,
+                0
+              )
+          );
+
+          return;
+        }
+
+        if (
+          event.key ===
+            'Enter' &&
+          !event.shiftKey
+        ) {
+          const selected =
+            filteredCommands[
+              selectedCommandIndex
+            ];
+
+          if (
+            selected
+              ?.available
+          ) {
+            event.preventDefault();
+
+            chooseCommand(
+              selected
+            );
+
+            return;
+          }
+        }
+
+        if (
+          event.key ===
+          'Escape'
+        ) {
+          event.preventDefault();
+
+          setValue('');
+
           return;
         }
       }
 
-      if (event.key === 'Escape') {
+      if (
+        event.key ===
+          'Enter' &&
+        !event.shiftKey
+      ) {
         event.preventDefault();
-        setValue('');
-        return;
-      }
-    }
 
-    if (
-      event.key === 'Enter' &&
-      !event.shiftKey
-    ) {
-      event.preventDefault();
-      handleSend();
-    }
-  };
+        handleSend();
+      }
+    };
 
   return (
     <div className="relative shrink-0 bg-transparent px-3 pb-3 pt-2 sm:px-6 sm:pb-4">
       <input
-        ref={imageInputRef}
+        ref={
+          imageInputRef
+        }
         type="file"
         accept="image/png,image/jpeg,image/webp,image/gif"
         className="hidden"
-        onChange={handleImageSelected}
+        onChange={
+          handleImageSelected
+        }
       />
 
       <input
-        ref={fileInputRef}
+        ref={
+          fileInputRef
+        }
         type="file"
         className="hidden"
-        onChange={handleFileSelected}
+        onChange={
+          handleFileSelected
+        }
       />
 
       <input
-        ref={importInputRef}
+        ref={
+          importInputRef
+        }
         type="file"
         accept=".json,application/json"
         className="hidden"
-        onChange={handleImportSelected}
+        onChange={
+          handleImportSelected
+        }
       />
 
       {disabled &&
         disabledReason && (
           <p className="mb-2 text-center text-xs text-danger-light dark:text-danger-dark">
-            {disabledReason}
+            {
+              disabledReason
+            }
           </p>
         )}
 
       <div className="relative mx-auto w-full max-w-3xl">
         {commandMenuOpen &&
-          filteredCommands.length > 0 && (
+          filteredCommands.length >
+            0 && (
             <div
               className="
                 absolute bottom-full left-0 right-0
@@ -463,12 +626,15 @@ Awaiting command...
               <div className="border-b border-black/5 px-4 py-3 dark:border-white/10">
                 <div className="flex items-center gap-2">
                   <Sparkles
-                    size={14}
+                    size={
+                      14
+                    }
                     className="text-accent-500"
                   />
 
                   <p className="text-xs font-semibold text-ink dark:text-paper">
-                    Atlas Actions
+                    Atlas
+                    Actions
                   </p>
                 </div>
               </div>
@@ -488,7 +654,9 @@ Awaiting command...
 
                     return (
                       <button
-                        key={command.id}
+                        key={
+                          command.id
+                        }
                         type="button"
                         disabled={
                           !command.available
@@ -515,11 +683,15 @@ Awaiting command...
                           command.available
                             ? 'hover:bg-black/[0.05] dark:hover:bg-white/[0.07]'
                             : 'cursor-not-allowed opacity-40',
-                        ].join(' ')}
+                        ].join(
+                          ' '
+                        )}
                       >
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-black/[0.05] dark:bg-white/[0.07]">
                           <CommandIcon
-                            size={17}
+                            size={
+                              17
+                            }
                           />
                         </div>
 
@@ -545,7 +717,9 @@ Awaiting command...
           )}
 
         <div
-          ref={plusMenuRef}
+          ref={
+            plusMenuRef
+          }
           className="relative"
         >
           {plusMenuOpen && (
@@ -565,22 +739,32 @@ Awaiting command...
               <button
                 type="button"
                 onClick={() =>
-                  imageInputRef.current?.click()
+                  imageInputRef.current
+                    ?.click()
                 }
                 className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm hover:bg-black/[0.05] dark:hover:bg-white/[0.07]"
               >
-                <Image size={17} />
+                <Image
+                  size={
+                    17
+                  }
+                />
                 Upload image
               </button>
 
               <button
                 type="button"
                 onClick={() =>
-                  fileInputRef.current?.click()
+                  fileInputRef.current
+                    ?.click()
                 }
                 className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm hover:bg-black/[0.05] dark:hover:bg-white/[0.07]"
               >
-                <Paperclip size={17} />
+                <Paperclip
+                  size={
+                    17
+                  }
+                />
                 Upload file
               </button>
 
@@ -589,20 +773,31 @@ Awaiting command...
               <button
                 type="button"
                 onClick={() =>
-                  importInputRef.current?.click()
+                  importInputRef.current
+                    ?.click()
                 }
                 className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm hover:bg-black/[0.05] dark:hover:bg-white/[0.07]"
               >
-                <FileUp size={17} />
+                <FileUp
+                  size={
+                    17
+                  }
+                />
                 Import
               </button>
 
               <button
                 type="button"
-                onClick={handleExport}
+                onClick={
+                  handleExport
+                }
                 className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm hover:bg-black/[0.05] dark:hover:bg-white/[0.07]"
               >
-                <FileDown size={17} />
+                <FileDown
+                  size={
+                    17
+                  }
+                />
                 Export
               </button>
 
@@ -610,11 +805,15 @@ Awaiting command...
 
               <button
                 type="button"
-                onClick={openAtlasActions}
+                onClick={
+                  openAtlasActions
+                }
                 className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm hover:bg-black/[0.05] dark:hover:bg-white/[0.07]"
               >
                 <Sparkles
-                  size={17}
+                  size={
+                    17
+                  }
                   className="text-accent-500"
                 />
                 Atlas Actions
@@ -642,7 +841,8 @@ Awaiting command...
               aria-label="Add attachment or action"
               onClick={() =>
                 setPlusMenuOpen(
-                  (open) => !open
+                  (open) =>
+                    !open
                 )
               }
               className="
@@ -658,22 +858,37 @@ Awaiting command...
                 dark:hover:text-paper
               "
             >
-              <Plus size={21} />
+              <Plus
+                size={
+                  21
+                }
+              />
             </button>
 
             <textarea
-              ref={textareaRef}
-              value={value}
-              onChange={(event) =>
+              ref={
+                textareaRef
+              }
+              value={
+                value
+              }
+              onChange={(
+                event
+              ) =>
                 setValue(
-                  event.target.value
+                  event.target
+                    .value
                 )
               }
               onKeyDown={
                 handleKeyDown
               }
-              disabled={disabled}
-              rows={1}
+              disabled={
+                disabled
+              }
+              rows={
+                1
+              }
               placeholder="Message Atlas..."
               aria-label="Message Atlas AI"
               className="
@@ -711,7 +926,11 @@ Awaiting command...
                   dark:hover:text-paper
                 "
               >
-                <Mic size={19} />
+                <Mic
+                  size={
+                    19
+                  }
+                />
               </button>
             )}
 
@@ -719,7 +938,9 @@ Awaiting command...
               <button
                 type="button"
                 aria-label="Stop generating"
-                onClick={onStop}
+                onClick={
+                  onStop
+                }
                 className="
                   flex h-10 w-10
                   shrink-0 items-center justify-center
@@ -732,7 +953,9 @@ Awaiting command...
                 "
               >
                 <Square
-                  size={15}
+                  size={
+                    15
+                  }
                   fill="currentColor"
                 />
               </button>
@@ -740,10 +963,11 @@ Awaiting command...
               <button
                 type="button"
                 aria-label="Send message"
-                onClick={handleSend}
+                onClick={
+                  handleSend
+                }
                 disabled={
-                  !value.trim() ||
-                  disabled
+                  !canSend
                 }
                 className="
                   flex h-10 w-10
@@ -757,14 +981,21 @@ Awaiting command...
                   disabled:opacity-35
                 "
               >
-                <ArrowUp size={19} />
+                <ArrowUp
+                  size={
+                    19
+                  }
+                />
               </button>
             )}
           </div>
         </div>
 
         <p className="mt-2 px-2 text-center text-[10px] text-muted-light dark:text-muted-dark">
-          Atlas AI can make mistakes. Type / for Atlas Actions.
+          Atlas AI can
+          make mistakes.
+          Type / for Atlas
+          Actions.
         </p>
       </div>
     </div>

@@ -6,12 +6,12 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
-  FileText,
 } from 'lucide-react';
 
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { TypingIndicator } from './TypingIndicator';
 import { MessageActions } from './MessageActions';
+import { PrivateAttachment } from './PrivateAttachment';
 
 import { formatTime } from '@/utils/formatDate';
 
@@ -23,25 +23,6 @@ interface MessageBubbleProps {
   showRegenerate: boolean;
   onRegenerate: () => void;
   isStreaming: boolean;
-}
-
-function formatFileSize(
-  bytes: number
-): string {
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  }
-
-  if (bytes < 1024 * 1024) {
-    return `${(
-      bytes / 1024
-    ).toFixed(1)} KB`;
-  }
-
-  return `${(
-    bytes /
-    (1024 * 1024)
-  ).toFixed(1)} MB`;
 }
 
 export function MessageBubble({
@@ -62,17 +43,25 @@ export function MessageBubble({
     message.metadata?.attachments ??
     [];
 
+  /*
+   * Use MIME type instead of only kind.
+   * This means an image uploaded through
+   * "Upload file" still renders as an image.
+   */
   const imageAttachments =
     attachments.filter(
       (attachment) =>
-        attachment.kind === 'image' &&
-        attachment.storageUrl
+        attachment.mimeType
+          .toLowerCase()
+          .startsWith('image/')
     );
 
   const fileAttachments =
     attachments.filter(
       (attachment) =>
-        attachment.kind === 'file'
+        !attachment.mimeType
+          .toLowerCase()
+          .startsWith('image/')
     );
 
   const [
@@ -129,38 +118,24 @@ export function MessageBubble({
               >
                 {imageAttachments.map(
                   (attachment) => (
-                    <a
+                    <PrivateAttachment
                       key={
                         attachment.id
                       }
-                      href={
-                        attachment.storageUrl ??
-                        undefined
+                      id={
+                        attachment.id
                       }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="
-                        block
-                        overflow-hidden
-                        rounded-[15px]
-                        bg-black/20
-                      "
-                    >
-                      <img
-                        src={
-                          attachment.storageUrl ??
-                          undefined
-                        }
-                        alt={
-                          attachment.fileName
-                        }
-                        className="
-                          max-h-[420px]
-                          w-full
-                          object-cover
-                        "
-                      />
-                    </a>
+                      fileName={
+                        attachment.fileName
+                      }
+                      mimeType={
+                        attachment.mimeType
+                      }
+                      sizeBytes={
+                        attachment.sizeBytes
+                      }
+                      image
+                    />
                   )
                 )}
               </div>
@@ -179,80 +154,23 @@ export function MessageBubble({
               >
                 {fileAttachments.map(
                   (attachment) => (
-                    <a
+                    <PrivateAttachment
                       key={
                         attachment.id
                       }
-                      href={
-                        attachment.storageUrl ??
-                        undefined
+                      id={
+                        attachment.id
                       }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="
-                        flex
-                        min-w-[220px]
-                        items-center
-                        gap-3
-                        rounded-xl
-                        bg-white/[0.08]
-                        px-3
-                        py-2.5
-                        transition
-                        hover:bg-white/[0.12]
-                      "
-                    >
-                      <div
-                        className="
-                          flex
-                          h-9
-                          w-9
-                          shrink-0
-                          items-center
-                          justify-center
-                          rounded-lg
-                          bg-white/[0.09]
-                        "
-                      >
-                        <FileText
-                          size={18}
-                        />
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <p
-                          className="
-                            truncate
-                            text-sm
-                            font-medium
-                          "
-                        >
-                          {
-                            attachment.fileName
-                          }
-                        </p>
-
-                        <p
-                          className="
-                            mt-0.5
-                            text-[11px]
-                            text-white/55
-                          "
-                        >
-                          {formatFileSize(
-                            attachment.sizeBytes
-                          )}
-                        </p>
-                      </div>
-
-                      <ExternalLink
-                        size={14}
-                        className="
-                          shrink-0
-                          opacity-60
-                        "
-                      />
-                    </a>
+                      fileName={
+                        attachment.fileName
+                      }
+                      mimeType={
+                        attachment.mimeType
+                      }
+                      sizeBytes={
+                        attachment.sizeBytes
+                      }
+                    />
                   )
                 )}
               </div>
@@ -278,8 +196,7 @@ export function MessageBubble({
                       opacity-70
                     "
                   >
-                    Generation
-                    stopped.
+                    Generation stopped.
                   </p>
                 )}
               </div>
@@ -479,9 +396,7 @@ export function MessageBubble({
                               dark:text-muted-dark
                             "
                           >
-                            {index +
-                              1}
-                            .
+                            {index + 1}.
                           </span>
 
                           <span className="break-words">
