@@ -159,8 +159,9 @@ async function readPrivateImage(
           'private',
 
         /*
-         * The image was just uploaded,
-         * so don't allow a cached stale read.
+         * The image may have been uploaded
+         * recently, so bypass a stale cached
+         * read.
          */
         useCache:
           false,
@@ -169,7 +170,8 @@ async function readPrivateImage(
 
   if (
     !result ||
-    result.statusCode !== 200
+    result.statusCode !==
+      200
   ) {
     throw new AppError(
       'Atlas could not read the attached image.',
@@ -219,19 +221,25 @@ async function readPrivateImage(
 
 async function buildMessageParts(
   message:
-    ChatHistoryMessage
+    ChatHistoryMessage,
+  includeImages:
+    boolean
 ): Promise<GeminiPart[]> {
   const parts:
     GeminiPart[] = [];
 
   /*
-   * Add images first so Gemini receives
-   * the visual context together with the
-   * user's message.
+   * Images are only loaded when the request
+   * builder decides they are relevant.
+   *
+   * This prevents old screenshots from being
+   * downloaded and sent to Gemini again on
+   * every later turn.
    */
   if (
     message.role ===
-    'user'
+      'user' &&
+    includeImages
   ) {
     const attachments =
       message.metadata
@@ -313,11 +321,12 @@ async function buildMessageParts(
   }
 
   /*
-   * Gemini content objects should not
-   * have an empty parts array.
+   * Gemini content objects must not have
+   * an empty parts array.
    */
   if (
-    parts.length === 0
+    parts.length ===
+    0
   ) {
     parts.push({
       text:
@@ -326,6 +335,60 @@ async function buildMessageParts(
   }
 
   return parts;
+}
+
+function messageHasImage(
+  message:
+    ChatHistoryMessage
+): boolean {
+  if (
+    message.role !==
+    'user'
+  ) {
+    return false;
+  }
+
+  const attachments =
+    message.metadata
+      ?.attachments ??
+    [];
+
+  return attachments.some(
+    (
+      attachment
+    ) =>
+      attachment.mimeType
+        .toLowerCase()
+        .startsWith(
+          'image/'
+        )
+  );
+}
+
+function refersToVisualContext(
+  text: string
+): boolean {
+  /*
+   * Deliberately avoid matching vague words
+   * such as "this" and "that" on their own.
+   *
+   * Otherwise something like "yeah that works"
+   * could unnecessarily resend an old image.
+   */
+  const visualReference =
+    /\b(image|images|picture|pictures|photo|photos|pic|pics|screenshot|screenshots|screen|attachment|attachments)\b/i;
+
+  const positionalReference =
+    /\b(shown above|image above|picture above|photo above|screenshot above|previous image|previous picture|previous photo|previous screenshot|last image|last picture|last photo|last screenshot|that image|that picture|that photo|that screenshot|this image|this picture|this photo|this screenshot)\b/i;
+
+  return (
+    visualReference.test(
+      text
+    ) ||
+    positionalReference.test(
+      text
+    )
+  );
 }
 
 async function toGeminiRequest(
@@ -343,10 +406,102 @@ async function toGeminiRequest(
   const contents:
     GeminiContent[] = [];
 
+  /*
+   * Find the newest user message.
+   */
+  let latestUserIndex =
+    -1;
+
   for (
-    const message
-    of history
+    let i =
+      history.length - 1;
+    i >= 0;
+    i--
   ) {
+    if (
+      history[i].role ===
+      'user'
+    ) {
+      latestUserIndex =
+        i;
+
+      break;
+    }
+  }
+
+  /*
+   * Find the newest user message containing
+   * at least one image.
+   */
+  let latestImageIndex =
+    -1;
+
+  for (
+    let i =
+      history.length - 1;
+    i >= 0;
+    i--
+  ) {
+    if (
+      messageHasImage(
+        history[i]
+      )
+    ) {
+      latestImageIndex =
+        i;
+
+      break;
+    }
+  }
+
+  const latestUserText =
+    latestUserIndex >=
+      0
+      ? history[
+          latestUserIndex
+        ].content
+      : '';
+
+  const latestUserHasImage =
+    latestUserIndex >=
+      0 &&
+    latestUserIndex ===
+      latestImageIndex;
+
+  /*
+   * An older image is only reused when the
+   * newest message explicitly appears to refer
+   * to visual context.
+   *
+   * Example:
+   *
+   * [image] "what app is this?"
+   * Atlas: "VS Code."
+   *
+   * "cool"
+   * -> image NOT resent
+   *
+   * "what else is in that screenshot?"
+   * -> most recent image IS resent
+   */
+  const shouldReusePreviousImage =
+    !latestUserHasImage &&
+    latestImageIndex >=
+      0 &&
+    refersToVisualContext(
+      latestUserText
+    );
+
+  for (
+    let i =
+      0;
+    i <
+      history.length;
+    i++
+  ) {
+    const message =
+      history[i];
+
     if (
       (
         message.role as string
@@ -359,9 +514,30 @@ async function toGeminiRequest(
       continue;
     }
 
+    /*
+     * Always send images attached to the newest
+     * user message.
+     *
+     * Otherwise only send the most recent image
+     * message when the user explicitly refers
+     * back to visual context.
+     */
+    const includeImages =
+      (
+        latestUserHasImage &&
+        i ===
+          latestUserIndex
+      ) ||
+      (
+        shouldReusePreviousImage &&
+        i ===
+          latestImageIndex
+      );
+
     const parts =
       await buildMessageParts(
-        message
+        message,
+        includeImages
       );
 
     contents.push({
@@ -518,7 +694,8 @@ ${JSON.stringify(
             'string' &&
           memory.content
             .trim()
-            .length > 0
+            .length >
+            0
       )
       .map(
         (memory) => ({
@@ -651,9 +828,9 @@ export async function streamChatCompletion(
     );
 
   /*
-   * This is now async because image
-   * attachments have to be downloaded
-   * from private Blob storage first.
+   * Async because relevant private image
+   * attachments may need to be downloaded
+   * before the Gemini request is made.
    */
   const {
     contents,

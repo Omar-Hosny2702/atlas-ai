@@ -1,10 +1,13 @@
 import crypto from 'node:crypto';
+import { Readable } from 'node:stream';
 
 import type {
   NextFunction,
   Request,
   Response,
 } from 'express';
+
+import { get } from '@vercel/blob';
 
 import {
   handleUpload,
@@ -68,17 +71,25 @@ function signTicket(
     );
   }
 
-  const encoded = encode(
-    JSON.stringify(payload)
-  );
+  const encoded =
+    encode(
+      JSON.stringify(
+        payload
+      )
+    );
 
-  const signature = crypto
-    .createHmac(
-      'sha256',
-      config.attachmentUploadSecret
-    )
-    .update(encoded)
-    .digest('base64url');
+  const signature =
+    crypto
+      .createHmac(
+        'sha256',
+        config.attachmentUploadSecret
+      )
+      .update(
+        encoded
+      )
+      .digest(
+        'base64url'
+      );
 
   return `${encoded}.${signature}`;
 }
@@ -98,7 +109,8 @@ function verifyTicket(
   const [
     encoded,
     signature,
-  ] = ticket.split('.');
+  ] =
+    ticket.split('.');
 
   if (
     !encoded ||
@@ -110,21 +122,26 @@ function verifyTicket(
     );
   }
 
-  const expected = crypto
-    .createHmac(
-      'sha256',
-      config.attachmentUploadSecret
-    )
-    .update(encoded)
-    .digest();
+  const expected =
+    crypto
+      .createHmac(
+        'sha256',
+        config.attachmentUploadSecret
+      )
+      .update(
+        encoded
+      )
+      .digest();
 
-  let supplied: Buffer;
+  let supplied:
+    Buffer;
 
   try {
-    supplied = Buffer.from(
-      signature,
-      'base64url'
-    );
+    supplied =
+      Buffer.from(
+        signature,
+        'base64url'
+      );
   } catch {
     throw new AppError(
       'Invalid upload ticket.',
@@ -150,9 +167,12 @@ function verifyTicket(
     UploadTicket;
 
   try {
-    payload = JSON.parse(
-      decode(encoded)
-    ) as UploadTicket;
+    payload =
+      JSON.parse(
+        decode(
+          encoded
+        )
+      ) as UploadTicket;
   } catch {
     throw new AppError(
       'Invalid upload ticket.',
@@ -201,8 +221,10 @@ async function ensureConversationOwnership(
     >`
       SELECT id
       FROM conversations
-      WHERE id = ${conversationId}
-        AND user_id = ${userId}
+      WHERE id =
+        ${conversationId}
+        AND user_id =
+        ${userId}
       LIMIT 1
     `;
 
@@ -290,13 +312,14 @@ export async function handleCreateUploadTicket(
       mimeType,
       sizeBytes,
       kind,
-    } = req.body as {
-      conversationId?: string;
-      fileName?: string;
-      mimeType?: string;
-      sizeBytes?: number;
-      kind?: string;
-    };
+    } =
+      req.body as {
+        conversationId?: string;
+        fileName?: string;
+        mimeType?: string;
+        sizeBytes?: number;
+        kind?: string;
+      };
 
     if (
       typeof conversationId !==
@@ -372,7 +395,8 @@ export async function handleCreateUploadTicket(
     res.json({
       attachmentId,
       ticket,
-      expiresIn: 300,
+      expiresIn:
+        300,
     });
   } catch (error) {
     next(error);
@@ -390,7 +414,8 @@ export async function handleAttachmentUpload(
         body:
           req.body as HandleUploadBody,
 
-        request: req,
+        request:
+          req,
 
         onBeforeGenerateToken:
           async (
@@ -487,40 +512,33 @@ export async function handleAttachmentUpload(
             const sql =
               await getDatabase();
 
-            const rows =
-              await sql<
-                { id: string }[]
-              >`
-                UPDATE attachments
-                SET
-                  storage_key =
-                    ${blob.pathname},
-                  storage_url =
-                    ${blob.url},
-                  status =
-                    'uploaded'
-                WHERE id =
-                    ${payload.attachmentId}
-                  AND user_id =
-                    ${payload.userId}
-                  AND conversation_id =
-                    ${payload.conversationId}
-                RETURNING id
-              `;
-
-            if (!rows[0]) {
-              throw new Error(
-                'Attachment record not found.'
-              );
-            }
+            await sql`
+              UPDATE attachments
+              SET
+                storage_key =
+                  ${blob.pathname},
+                storage_url =
+                  ${blob.url},
+                status =
+                  'uploaded'
+              WHERE id =
+                  ${payload.attachmentId}
+                AND user_id =
+                  ${payload.userId}
+                AND conversation_id =
+                  ${payload.conversationId}
+            `;
           },
       });
 
-    res.json(result);
+    res.json(
+      result
+    );
   } catch (error) {
     next(error);
   }
 }
+
 export async function handleCompleteAttachmentUpload(
   req: Request,
   res: Response,
@@ -534,11 +552,12 @@ export async function handleCompleteAttachmentUpload(
       attachmentId,
       pathname,
       url,
-    } = req.body as {
-      attachmentId?: string;
-      pathname?: string;
-      url?: string;
-    };
+    } =
+      req.body as {
+        attachmentId?: string;
+        pathname?: string;
+        url?: string;
+      };
 
     if (
       !attachmentId ||
@@ -560,11 +579,16 @@ export async function handleCompleteAttachmentUpload(
       >`
         UPDATE attachments
         SET
-          storage_key = ${pathname},
-          storage_url = ${url},
-          status = 'uploaded'
-        WHERE id = ${attachmentId}
-          AND user_id = ${userId}
+          storage_key =
+            ${pathname},
+          storage_url =
+            ${url},
+          status =
+            'uploaded'
+        WHERE id =
+            ${attachmentId}
+          AND user_id =
+            ${userId}
         RETURNING id
       `;
 
@@ -575,9 +599,155 @@ export async function handleCompleteAttachmentUpload(
       );
     }
 
-    res.status(200).json({
-      completed: true,
+    res.status(
+      200
+    ).json({
+      completed:
+        true,
     });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/*
+ * GET /api/attachments/:attachmentId/content
+ *
+ * Private Blob files cannot be opened directly
+ * in the browser. Atlas authenticates the user,
+ * verifies ownership, then streams the file.
+ */
+export async function handleGetAttachmentContent(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId =
+      req.auth!.userId;
+
+    const {
+      attachmentId,
+    } =
+      req.params;
+
+    const sql =
+      await getDatabase();
+
+    const rows =
+      await sql<
+        {
+          id: string;
+          storage_key:
+            | string
+            | null;
+          mime_type:
+            string;
+          file_name:
+            string;
+          status:
+            string;
+        }[]
+      >`
+        SELECT
+          id,
+          storage_key,
+          mime_type,
+          file_name,
+          status
+        FROM attachments
+        WHERE id =
+            ${attachmentId}
+          AND user_id =
+            ${userId}
+        LIMIT 1
+      `;
+
+    const attachment =
+      rows[0];
+
+    if (
+      !attachment
+    ) {
+      throw new AppError(
+        'Attachment not found.',
+        404
+      );
+    }
+
+    if (
+      attachment.status !==
+        'uploaded' ||
+      !attachment.storage_key
+    ) {
+      throw new AppError(
+        'Attachment is not available.',
+        409
+      );
+    }
+
+    const result =
+      await get(
+        attachment.storage_key,
+        {
+          access:
+            'private',
+        }
+      );
+
+    if (
+      !result ||
+      result.statusCode !==
+        200
+    ) {
+      throw new AppError(
+        'Attachment could not be loaded.',
+        404
+      );
+    }
+
+    res.status(
+      200
+    );
+
+    res.setHeader(
+      'Content-Type',
+      result.blob.contentType ||
+        attachment.mime_type ||
+        'application/octet-stream'
+    );
+
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${attachment.file_name.replace(
+        /["\r\n]/g,
+        ''
+      )}"`
+    );
+
+    res.setHeader(
+      'Cache-Control',
+      'private, no-cache'
+    );
+
+    res.setHeader(
+      'X-Content-Type-Options',
+      'nosniff'
+    );
+
+    const nodeStream =
+      Readable.fromWeb(
+        result.stream as globalThis.ReadableStream<Uint8Array>
+      );
+
+    nodeStream.on(
+      'error',
+      next
+    );
+
+    nodeStream.pipe(
+      res
+    );
   } catch (error) {
     next(error);
   }
