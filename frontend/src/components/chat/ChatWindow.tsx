@@ -1629,7 +1629,7 @@ const firstName =
                 sm:text-4xl
               "
             >
-              Hi Omar,
+              Hi {firstName},
               what&apos;s the
               plan?
             </h1>
@@ -1893,7 +1893,7 @@ const firstName =
                   sm:text-4xl
                 "
               >
-                Hi Omar,
+                Hi {firstName},
                 what&apos;s the
                 plan?
               </h1>

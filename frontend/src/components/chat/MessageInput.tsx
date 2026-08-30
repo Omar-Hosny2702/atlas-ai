@@ -6,6 +6,8 @@ import {
   type KeyboardEvent,
 } from 'react';
 
+import { useAuth } from '../../auth/AuthContext';
+
 import {
   ArrowUp,
   Brain,
@@ -104,6 +106,18 @@ export function MessageInput({
   disabled,
   disabledReason,
 }: MessageInputProps) {
+  const { session } = useAuth();
+
+  const displayName =
+    session?.user?.name ||
+    session?.user?.email ||
+    'there';
+
+  const firstName =
+    displayName
+      .trim()
+      .split(/\s+/)[0];
+
   const [value, setValue] =
     useState('');
 
@@ -430,7 +444,7 @@ ATLAS CORE v1.0
 Identity Verification...
 ████████████ 100%
 
-Welcome back, Omar.
+Welcome back, ${firstName}.
 
 Developer Signature:
 ✓ VERIFIED
