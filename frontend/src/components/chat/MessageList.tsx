@@ -21,7 +21,17 @@ export function MessageList({
   const lastMessage =
     messages[messages.length - 1];
 
-  const scrollDep = `${messages.length}:${lastMessage?.content.length ?? 0}`;
+  const scrollDep = [
+    messages.length,
+    lastMessage?.id ?? '',
+    lastMessage?.content.length ?? 0,
+    lastMessage?.image
+      ? 'image'
+      : 'text',
+    isStreaming
+      ? 'streaming'
+      : 'idle',
+  ].join(':');
 
   const {
     containerRef,

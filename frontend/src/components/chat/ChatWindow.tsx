@@ -1702,7 +1702,15 @@ const firstName =
   const visibleMessages = [
     ...messages,
     ...actionMessages,
-  ];
+  ].sort(
+    (a, b) =>
+      new Date(
+        a.createdAt
+      ).getTime() -
+      new Date(
+        b.createdAt
+      ).getTime()
+  );
 
   const hasMessages =
     visibleMessages.filter(
