@@ -1,3 +1,5 @@
+import crypto from 'node:crypto';
+
 import type {
   Request,
   Response,
@@ -6,6 +8,8 @@ import type {
 import {
   z,
 } from 'zod';
+
+import { get, put } from '@vercel/blob';
 
 import {
   saveUsefulMemories,
@@ -24,7 +28,14 @@ import {
 import {
   streamChatCompletion,
   extractMemoriesFromMessage,
+  classifyImageIntent,
 } from '../services/llmService.js';
+
+import {
+  generateImage,
+  editImage,
+  type GeneratedImage,
+} from '../services/imageGenerationService.js';
 
 import {
   AppError,
@@ -117,6 +128,261 @@ export const sendMessageSchema =
         }
       }
     );
+
+interface RecentGeneratedImage {
+  attachmentId: string;
+  alt?: string;
+}
+
+function findLatestGeneratedImage(
+  messages: Awaited<
+    ReturnType<typeof getMessages>
+  >
+): RecentGeneratedImage | null {
+  for (
+    let i =
+      messages.length - 1;
+    i >= 0;
+    i--
+  ) {
+    const generated =
+      messages[i]
+        .metadata
+        ?.generatedImage;
+
+    if (
+      generated
+        ?.attachmentId
+    ) {
+      return {
+        attachmentId:
+          generated.attachmentId,
+
+        alt:
+          generated.alt,
+      };
+    }
+  }
+
+  return null;
+}
+
+async function loadGeneratedImageBytes(
+  userId: string,
+  conversationId: string,
+  attachmentId: string
+): Promise<Buffer> {
+  const sql =
+    await getDatabase();
+
+  const rows =
+    await sql<
+      {
+        storage_key:
+          string | null;
+        status:
+          string;
+      }[]
+    >`
+      SELECT
+        storage_key,
+        status
+      FROM attachments
+      WHERE id =
+          ${attachmentId}
+        AND user_id =
+          ${userId}
+        AND conversation_id =
+          ${conversationId}
+      LIMIT 1
+    `;
+
+  const attachment =
+    rows[0];
+
+  if (
+    !attachment ||
+    attachment.status !==
+      'uploaded' ||
+    !attachment.storage_key
+  ) {
+    throw new AppError(
+      'The image Atlas was trying to edit is no longer available.',
+      404
+    );
+  }
+
+  const result =
+    await get(
+      attachment.storage_key,
+      {
+        access:
+          'private',
+      }
+    );
+
+  if (
+    !result ||
+    result.statusCode !==
+      200
+  ) {
+    throw new AppError(
+      'Atlas could not load the previous image.',
+      502
+    );
+  }
+
+  const chunks:
+    Buffer[] = [];
+
+  for await (
+    const chunk
+    of result.stream
+  ) {
+    chunks.push(
+      Buffer.isBuffer(chunk)
+        ? chunk
+        : Buffer.from(chunk)
+    );
+  }
+
+  return Buffer.concat(
+    chunks
+  );
+}
+
+async function saveGeneratedImage(
+  userId: string,
+  conversationId: string,
+  prompt: string,
+  image: GeneratedImage
+) {
+  const attachmentId =
+    crypto.randomUUID();
+
+  const fileName =
+    `atlas-generated-${attachmentId}.jpg`;
+
+  const pathname =
+    `atlas-generated/${conversationId}/${fileName}`;
+
+  const bytes =
+    Buffer.from(
+      image.data,
+      'base64'
+    );
+
+  const blob =
+    await put(
+      pathname,
+      bytes,
+      {
+        access:
+          'private',
+
+        contentType:
+          image.mimeType,
+
+        addRandomSuffix:
+          false,
+      }
+    );
+
+  const sql =
+    await getDatabase();
+
+  await sql`
+    INSERT INTO attachments (
+      id,
+      user_id,
+      conversation_id,
+      file_name,
+      mime_type,
+      size_bytes,
+      kind,
+      storage_provider,
+      storage_key,
+      storage_url,
+      status
+    )
+    VALUES (
+      ${attachmentId},
+      ${userId},
+      ${conversationId},
+      ${fileName},
+      ${image.mimeType},
+      ${bytes.length},
+      'image',
+      'vercel-blob',
+      ${blob.pathname},
+      ${blob.url},
+      'uploaded'
+    )
+  `;
+
+  const saved =
+    await addMessage(
+      userId,
+      conversationId,
+      'assistant',
+      '',
+      {
+        metadata: {
+          generatedImage: {
+            attachmentId,
+            storageUrl:
+              blob.url,
+            mimeType:
+              image.mimeType,
+            alt:
+              prompt,
+          },
+        },
+      }
+    );
+
+  return {
+    saved,
+    attachmentId,
+  };
+}
+
+async function sendImageResult(
+  res: Response,
+  saved: Awaited<
+    ReturnType<typeof addMessage>
+  >,
+  image: GeneratedImage,
+  prompt: string
+): Promise<void> {
+  sseWrite(
+    res,
+    {
+      type:
+        'done',
+
+      message: {
+        ...saved,
+
+        /*
+         * Transient copy used for immediate
+         * display. The durable version is in
+         * metadata.generatedImage + Blob.
+         */
+        image: {
+          mimeType:
+            image.mimeType,
+
+          data:
+            image.data,
+
+          alt:
+            prompt,
+        },
+      },
+    }
+  );
+}
 
 const activeGenerations =
   new Map<
@@ -671,6 +937,154 @@ export async function sendMessage(
     attachmentIds,
     userMessage.id
   );
+
+  /*
+   * Natural image routing.
+   *
+   * Users do not need to type /atlas image.
+   * Gemini decides whether the message is:
+   *
+   * chat     -> normal Atlas response
+   * generate -> new image
+   * edit     -> modify latest generated image
+   */
+  const conversationMessages =
+    await getMessages(
+      userId,
+      conversationId
+    );
+
+  const latestGeneratedImage =
+    findLatestGeneratedImage(
+      conversationMessages
+    );
+
+  const imageIntent =
+    content.trim()
+      ? await classifyImageIntent(
+          content,
+          Boolean(
+            latestGeneratedImage
+          )
+        )
+      : 'chat';
+
+  if (
+    imageIntent ===
+      'generate' ||
+    (
+      imageIntent ===
+        'edit' &&
+      latestGeneratedImage
+    )
+  ) {
+    startSse(
+      res
+    );
+
+    try {
+      let image:
+        GeneratedImage;
+
+      if (
+        imageIntent ===
+          'edit' &&
+        latestGeneratedImage
+      ) {
+        const sourceBytes =
+          await loadGeneratedImageBytes(
+            userId,
+            conversationId,
+            latestGeneratedImage
+              .attachmentId
+          );
+
+        image =
+          await editImage(
+            content,
+            sourceBytes
+          );
+      } else {
+        image =
+          await generateImage(
+            content
+          );
+      }
+
+      const {
+        saved,
+      } =
+        await saveGeneratedImage(
+          userId,
+          conversationId,
+          content,
+          image
+        );
+
+      const firstUser =
+        conversationMessages.find(
+          (
+            message
+          ) =>
+            message.role ===
+            'user'
+        );
+
+      if (firstUser) {
+        await maybeAutoTitle(
+          userId,
+          conversationId,
+          firstUser.content
+        );
+      }
+
+      await sendImageResult(
+        res,
+        saved,
+        image,
+        content
+      );
+    } catch (error) {
+      const message =
+        error instanceof
+          AppError
+          ? error.message
+          : 'Atlas could not create that image.';
+
+      logger.error(
+        'Image action failed',
+        error
+      );
+
+      const savedMessage =
+        await addMessage(
+          userId,
+          conversationId,
+          'assistant',
+          '',
+          {
+            error:
+              message,
+          }
+        );
+
+      sseWrite(
+        res,
+        {
+          type:
+            'error',
+
+          message,
+
+          savedMessage,
+        }
+      );
+    } finally {
+      res.end();
+    }
+
+    return;
+  }
 
   const memoryWorthChecking =
     content.trim().length >

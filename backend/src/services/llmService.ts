@@ -963,3 +963,149 @@ export async function streamChatCompletion(
     stopped,
   };
 }
+export type ImageIntent =
+  | 'chat'
+  | 'generate'
+  | 'edit';
+
+export async function classifyImageIntent(
+  userMessage: string,
+  hasRecentImage: boolean
+): Promise<ImageIntent> {
+  if (
+    !apiKey ||
+    !userMessage.trim()
+  ) {
+    return 'chat';
+  }
+
+  const prompt = `
+You are an intent router for Atlas AI.
+
+Classify the user's newest message into exactly ONE category:
+
+"generate"
+The user wants Atlas to create, generate, draw, render, design, or make a new image.
+
+"edit"
+The user wants to change, modify, restyle, adjust, remove, add to, recolour,
+or otherwise edit an image from the recent conversation.
+
+"chat"
+Anything else, including discussing an image without asking to modify it.
+
+Examples:
+
+"make me a photo of Cairo at night"
+generate
+
+"generate a Lamborghini in Tokyo"
+generate
+
+"draw a dragon"
+generate
+
+"make the sky darker"
+edit
+
+"change his shirt to red"
+edit
+
+"remove the person in the background"
+edit
+
+"make it photorealistic"
+edit
+
+"what do you think of that picture?"
+chat
+
+"what car is shown?"
+chat
+
+"how does image compression work?"
+chat
+
+There is a recent editable image:
+${hasRecentImage ? 'yes' : 'no'}
+
+Important:
+If there is NO recent image, do not classify vague modification language such as
+"make it darker" as edit unless the message clearly asks to edit an attached or
+existing image.
+
+Return ONLY JSON:
+
+{"intent":"chat"}
+
+or
+
+{"intent":"generate"}
+
+or
+
+{"intent":"edit"}
+
+User message:
+${JSON.stringify(userMessage)}
+`;
+
+  try {
+    const response =
+      await genAI.models.generateContent({
+        model:
+          DEFAULT_MODEL,
+
+        contents: [
+          {
+            role:
+              'user',
+
+            parts: [
+              {
+                text:
+                  prompt,
+              },
+            ],
+          },
+        ],
+
+        config: {
+          temperature:
+            0,
+
+          responseMimeType:
+            'application/json',
+        },
+      });
+
+    const text =
+      response.text?.trim();
+
+    if (!text) {
+      return 'chat';
+    }
+
+    const parsed =
+      JSON.parse(text) as {
+        intent?: unknown;
+      };
+
+    if (
+      parsed.intent === 'generate' ||
+      parsed.intent === 'edit' ||
+      parsed.intent === 'chat'
+    ) {
+      return parsed.intent;
+    }
+
+    return 'chat';
+  } catch (error) {
+    logger.error(
+      'Image intent classification failed',
+      error
+    );
+
+    return 'chat';
+  }
+}
