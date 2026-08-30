@@ -1,5 +1,8 @@
+import crypto from 'node:crypto';
+
 import type { Request, Response } from 'express';
 import { z } from 'zod';
+import { put } from '@vercel/blob';
 
 import {
   addMessage,
@@ -7,6 +10,7 @@ import {
 } from '../services/conversationService.js';
 
 import { generateImage } from '../services/imageGenerationService.js';
+import { getDatabase } from '../db/database.js';
 import { researchTopic } from '../services/researchService.js';
 
 import {
@@ -20,6 +24,10 @@ export const generateImageSchema = z.object({
     .trim()
     .min(1, 'Image prompt cannot be empty.')
     .max(4000, 'Image prompt is too long.'),
+
+  conversationId: z
+    .string()
+    .min(1, 'Conversation is required.'),
 });
 
 export const researchSchema = z.object({
@@ -56,14 +64,139 @@ export async function handleGenerateImage(
   req: Request,
   res: Response
 ): Promise<void> {
-  const { prompt } = generateImageSchema.parse(req.body);
+  const userId =
+    req.auth!.userId;
 
-  const image = await generateImage(prompt);
+  const {
+    prompt,
+    conversationId,
+  } =
+    generateImageSchema.parse(
+      req.body
+    );
+
+  const originalContent =
+    `/atlas image ${prompt}`;
+
+  await addMessage(
+    userId,
+    conversationId,
+    'user',
+    originalContent
+  );
+
+  const image =
+    await generateImage(
+      prompt
+    );
+
+  const attachmentId =
+    crypto.randomUUID();
+
+  const extension =
+    image.mimeType === 'image/png'
+      ? 'png'
+      : image.mimeType === 'image/webp'
+        ? 'webp'
+        : 'jpg';
+
+  const fileName =
+    `atlas-generated-${attachmentId}.${extension}`;
+
+  const pathname =
+    `atlas-generated/${conversationId}/${fileName}`;
+
+  const bytes =
+    Buffer.from(
+      image.data,
+      'base64'
+    );
+
+  const blob =
+    await put(
+      pathname,
+      bytes,
+      {
+        access:
+          'private',
+
+        contentType:
+          image.mimeType,
+
+        addRandomSuffix:
+          false,
+      }
+    );
+
+  const sql =
+    await getDatabase();
+
+  await sql`
+    INSERT INTO attachments (
+      id,
+      user_id,
+      conversation_id,
+      file_name,
+      mime_type,
+      size_bytes,
+      kind,
+      storage_provider,
+      storage_key,
+      storage_url,
+      status
+    )
+    VALUES (
+      ${attachmentId},
+      ${userId},
+      ${conversationId},
+      ${fileName},
+      ${image.mimeType},
+      ${bytes.length},
+      'image',
+      'vercel-blob',
+      ${blob.pathname},
+      ${blob.url},
+      'uploaded'
+    )
+  `;
+
+  await addMessage(
+    userId,
+    conversationId,
+    'assistant',
+    '',
+    {
+      metadata: {
+        generatedImage: {
+          attachmentId,
+          storageUrl:
+            blob.url,
+          mimeType:
+            image.mimeType,
+          alt:
+            prompt,
+        },
+      },
+    }
+  );
+
+  await maybeAutoTitle(
+    userId,
+    conversationId,
+    prompt
+  );
 
   res.json({
-    type: 'image',
-    mimeType: image.mimeType,
-    data: image.data,
+    type:
+      'image',
+
+    mimeType:
+      image.mimeType,
+
+    data:
+      image.data,
+
+    attachmentId,
   });
 }
 

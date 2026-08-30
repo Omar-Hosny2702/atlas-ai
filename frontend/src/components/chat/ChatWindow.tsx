@@ -483,7 +483,8 @@ const firstName =
       try {
         const result =
           await generateImage(
-            prompt
+            prompt,
+            conversationId
           );
 
         setActionMessages(
