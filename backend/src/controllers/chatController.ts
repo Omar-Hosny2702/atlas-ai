@@ -51,10 +51,6 @@ export const sendMessageSchema =
   z.object({
     content:
       z.string()
-        .min(
-          1,
-          'Message cannot be empty.'
-        )
         .max(
           32000,
           'Message is too long.'
@@ -89,7 +85,38 @@ export const sendMessageSchema =
     model:
       z.string()
         .optional(),
-  });
+  })
+    .superRefine(
+      (
+        value,
+        ctx
+      ) => {
+        const hasText =
+          value.content
+            .trim()
+            .length > 0;
+
+        const hasAttachments =
+          (
+            value.attachmentIds
+              ?.length ?? 0
+          ) > 0;
+
+        if (
+          !hasText &&
+          !hasAttachments
+        ) {
+          ctx.addIssue({
+            code:
+              z.ZodIssueCode.custom,
+            path:
+              ['content'],
+            message:
+              'Message cannot be empty.',
+          });
+        }
+      }
+    );
 
 const activeGenerations =
   new Map<
@@ -646,6 +673,8 @@ export async function sendMessage(
   );
 
   const memoryWorthChecking =
+    content.trim().length >
+      0 &&
     /\b(remember|my favourite|my favorite|i prefer|i like|i love|i hate|i use|i am|i'm|my project|from now on)\b/i
       .test(content);
 
@@ -764,7 +793,9 @@ export async function stopGeneration(
       conversationId
     );
 
-  if (!controller) {
+  if (
+    !controller
+  ) {
     res.status(
       404
     ).json({
