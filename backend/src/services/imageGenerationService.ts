@@ -14,6 +14,15 @@ export interface GeneratedImage {
   data: string;
 }
 
+interface CloudflareImageResponse {
+  result?: {
+    image?: string;
+  };
+  success?: boolean;
+  errors?: unknown[];
+  messages?: unknown[];
+}
+
 export async function generateImage(
   prompt: string
 ): Promise<GeneratedImage> {
@@ -73,17 +82,22 @@ export async function generateImage(
       );
     }
 
-    const arrayBuffer =
-      await response.arrayBuffer();
+    const json =
+      (await response.json()) as CloudflareImageResponse;
 
-    const base64 =
-      Buffer.from(
-        arrayBuffer
-      ).toString('base64');
+    const image =
+      json.result?.image;
+
+    if (!image) {
+      throw new AppError(
+        'Cloudflare did not return an image.',
+        502
+      );
+    }
 
     return {
-      mimeType: 'image/png',
-      data: base64,
+      mimeType: 'image/jpeg',
+      data: image,
     };
   } catch (error) {
     if (error instanceof AppError) {
