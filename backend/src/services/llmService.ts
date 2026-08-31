@@ -795,7 +795,177 @@ export {
   checkGeminiHealth
     as checkOllamaHealth,
 };
+function getGeminiErrorMessage(
+  err: unknown
+): {
+  message: string;
+  statusCode: number;
+} {
+  const rawMessage =
+    err instanceof Error
+      ? err.message
+      : String(err);
 
+  const errorObject =
+    typeof err === 'object' &&
+    err !== null
+      ? err as Record<
+          string,
+          unknown
+        >
+      : null;
+
+  const rawStatus =
+    errorObject?.status ??
+    errorObject?.code;
+
+  const numericStatus =
+    typeof rawStatus ===
+      'number'
+      ? rawStatus
+      : typeof rawStatus ===
+          'string' &&
+        /^\d+$/.test(
+          rawStatus
+        )
+        ? Number(
+            rawStatus
+          )
+        : undefined;
+
+  /*
+   * Gemini's SDK sometimes embeds the actual
+   * Google API error inside the Error message,
+   * so check both structured fields and text.
+   */
+  const isQuotaError =
+    numericStatus ===
+      429 ||
+    /\b429\b/.test(
+      rawMessage
+    ) ||
+    /RESOURCE_EXHAUSTED/i.test(
+      rawMessage
+    ) ||
+    /quota exceeded/i.test(
+      rawMessage
+    ) ||
+    /rate.?limit/i.test(
+      rawMessage
+    );
+
+  if (
+    isQuotaError
+  ) {
+    return {
+      message:
+        'Gemini quota exceeded. Please try again later.',
+      statusCode:
+        429,
+    };
+  }
+
+  const isAuthenticationError =
+    numericStatus ===
+      401 ||
+    numericStatus ===
+      403 ||
+    /\b401\b/.test(
+      rawMessage
+    ) ||
+    /\b403\b/.test(
+      rawMessage
+    ) ||
+    /UNAUTHENTICATED/i.test(
+      rawMessage
+    ) ||
+    /PERMISSION_DENIED/i.test(
+      rawMessage
+    ) ||
+    /API key not valid/i.test(
+      rawMessage
+    ) ||
+    /invalid API key/i.test(
+      rawMessage
+    );
+
+  if (
+    isAuthenticationError
+  ) {
+    return {
+      message:
+        'Atlas could not authenticate with Gemini. Check the Gemini API key configuration.',
+      statusCode:
+        503,
+    };
+  }
+
+  const isServiceError =
+    (
+      typeof numericStatus ===
+        'number' &&
+      numericStatus >=
+        500
+    ) ||
+    /\b5\d\d\b/.test(
+      rawMessage
+    ) ||
+    /INTERNAL/i.test(
+      rawMessage
+    ) ||
+    /UNAVAILABLE/i.test(
+      rawMessage
+    );
+
+  if (
+    isServiceError
+  ) {
+    return {
+      message:
+        'Gemini is temporarily unavailable. Please try again shortly.',
+      statusCode:
+        502,
+    };
+  }
+
+  const isNetworkError =
+    /fetch failed/i.test(
+      rawMessage
+    ) ||
+    /network/i.test(
+      rawMessage
+    ) ||
+    /ECONNRESET/i.test(
+      rawMessage
+    ) ||
+    /ECONNREFUSED/i.test(
+      rawMessage
+    ) ||
+    /ENOTFOUND/i.test(
+      rawMessage
+    ) ||
+    /ETIMEDOUT/i.test(
+      rawMessage
+    );
+
+  if (
+    isNetworkError
+  ) {
+    return {
+      message:
+        'Atlas could not connect to Gemini. Please check the connection and try again.',
+      statusCode:
+        502,
+    };
+  }
+
+  return {
+    message:
+      'Gemini could not complete this request. Please try again.',
+    statusCode:
+      502,
+  };
+}
 export async function streamChatCompletion(
   history:
     ChatHistoryMessage[],
@@ -880,7 +1050,7 @@ export async function streamChatCompletion(
               : {}),
           },
         });
-  } catch (err) {
+    } catch (err) {
     if (
       signal.aborted
     ) {
@@ -896,14 +1066,14 @@ export async function streamChatCompletion(
       err
     );
 
-    const message =
-      err instanceof Error
-        ? err.message
-        : String(err);
+    const geminiError =
+      getGeminiErrorMessage(
+        err
+      );
 
     throw new AppError(
-      `Could not get a response from Gemini. Check that GEMINI_API_KEY in backend/.env is valid. (${message})`,
-      502
+      geminiError.message,
+      geminiError.statusCode
     );
   }
 
@@ -939,7 +1109,7 @@ export async function streamChatCompletion(
         );
       }
     }
-  } catch (err) {
+    } catch (err) {
     if (
       signal.aborted
     ) {
@@ -951,9 +1121,14 @@ export async function streamChatCompletion(
         err
       );
 
+      const geminiError =
+        getGeminiErrorMessage(
+          err
+        );
+
       throw new AppError(
-        'The response stream was interrupted unexpectedly.',
-        502
+        geminiError.message,
+        geminiError.statusCode
       );
     }
   }
