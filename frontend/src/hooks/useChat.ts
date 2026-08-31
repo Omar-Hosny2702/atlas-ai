@@ -20,6 +20,11 @@ import type {
 const STREAMING_ID =
   '__streaming__';
 
+interface ActiveStream {
+  conversationId: string;
+  controller: AbortController;
+}
+
 interface UseChatResult {
   conversation:
     ConversationWithMessages | null;
@@ -36,6 +41,7 @@ interface UseChatResult {
   ) => Promise<void>;
 
   stop: () => void;
+
   regenerate:
     () => Promise<void>;
 
@@ -91,35 +97,98 @@ export function useChat(
       string | null
     >(null);
 
-  const abortRef =
+  /*
+   * The currently selected conversation.
+   *
+   * Stream callbacks use this ref so an
+   * old conversation can keep generating
+   * without modifying whichever chat the
+   * user is currently viewing.
+   */
+  const selectedConversationRef =
     useRef<
-      AbortController | null
-    >(null);
+      string | null
+    >(conversationId);
+
+  /*
+   * Streams are keyed by conversation.
+   *
+   * Switching chats must NOT abort a
+   * generation. Only Stop should abort it.
+   */
+  const activeStreamsRef =
+    useRef<
+      Map<
+        string,
+        ActiveStream
+      >
+    >(
+      new Map()
+    );
+
+  useEffect(
+    () => {
+      selectedConversationRef.current =
+        conversationId;
+    },
+    [
+      conversationId,
+    ]
+  );
 
   const load =
     useCallback(
       async () => {
+        const targetConversationId =
+          conversationId;
+
         if (
-          !conversationId
+          !targetConversationId
         ) {
           setConversation(
             null
           );
 
-          setMessages([]);
+          setMessages(
+            []
+          );
+
+          setLoading(
+            false
+          );
 
           return;
         }
 
-        setLoading(true);
-        setLoadError(null);
+        setLoading(
+          true
+        );
+
+        setLoadError(
+          null
+        );
 
         try {
           const data =
             await conversationApi
               .getConversation(
-                conversationId
+                targetConversationId
               );
+
+          /*
+           * The user may have switched
+           * conversations while this request
+           * was in flight.
+           *
+           * Never let an old request replace
+           * the newly selected chat.
+           */
+          if (
+            selectedConversationRef.current !==
+            targetConversationId
+          ) {
+            return;
+          }
 
           setConversation(
             data
@@ -128,37 +197,96 @@ export function useChat(
           setMessages(
             data.messages
           );
-        } catch (err) {
+        } catch (
+          err
+        ) {
+          if (
+            selectedConversationRef.current !==
+            targetConversationId
+          ) {
+            return;
+          }
+
           setLoadError(
             err instanceof Error
               ? err.message
               : 'Failed to load this conversation.'
           );
         } finally {
-          setLoading(
-            false
-          );
+          if (
+            selectedConversationRef.current ===
+            targetConversationId
+          ) {
+            setLoading(
+              false
+            );
+          }
         }
       },
-      [conversationId]
+      [
+        conversationId,
+      ]
     );
 
-  useEffect(() => {
-    void load();
+  useEffect(
+    () => {
+      /*
+       * IMPORTANT:
+       *
+       * Do not abort an active stream here.
+       * This effect runs whenever the user
+       * switches conversations.
+       */
+      void load();
 
-    setStreamError(
-      null
-    );
+      setStreamError(
+        null
+      );
 
-    return () => {
-      abortRef.current
-        ?.abort();
-    };
-  }, [load]);
+      const targetConversationId =
+        conversationId;
+
+      setIsStreaming(
+        targetConversationId
+          ? activeStreamsRef.current.has(
+              targetConversationId
+            )
+          : false
+      );
+    },
+    [
+      conversationId,
+      load,
+    ]
+  );
+
+  /*
+   * Only abort streams when this hook is
+   * actually removed from the application,
+   * not when conversationId changes.
+   */
+  useEffect(
+    () => {
+      return () => {
+        for (
+          const stream
+          of activeStreamsRef.current.values()
+        ) {
+          stream.controller.abort();
+        }
+
+        activeStreamsRef.current.clear();
+      };
+    },
+    []
+  );
 
   const runStream =
     useCallback(
       (
+        targetConversationId:
+          string,
+
         starter: (
           handlers:
             chatApi.StreamHandlers,
@@ -169,8 +297,14 @@ export function useChat(
         optimisticUserMessage?:
           Message
       ) => {
+        /*
+         * Prevent two simultaneous streams
+         * inside the same conversation.
+         */
         if (
-          !conversationId
+          activeStreamsRef.current.has(
+            targetConversationId
+          )
         ) {
           return Promise.resolve();
         }
@@ -178,64 +312,105 @@ export function useChat(
         const controller =
           new AbortController();
 
-        abortRef.current =
-          controller;
+        activeStreamsRef.current.set(
+          targetConversationId,
+          {
+            conversationId:
+              targetConversationId,
 
-        setIsStreaming(
-          true
-        );
-
-        setStreamError(
-          null
+            controller,
+          }
         );
 
         if (
-          optimisticUserMessage
+          selectedConversationRef.current ===
+          targetConversationId
         ) {
+          setIsStreaming(
+            true
+          );
+
+          setStreamError(
+            null
+          );
+
+          if (
+            optimisticUserMessage
+          ) {
+            setMessages(
+              (
+                previous
+              ) => [
+                ...previous,
+                optimisticUserMessage,
+              ]
+            );
+          }
+
+          const placeholder:
+            Message = {
+              id:
+                STREAMING_ID,
+
+              conversationId:
+                targetConversationId,
+
+              role:
+                'assistant',
+
+              content:
+                '',
+
+              createdAt:
+                new Date()
+                  .toISOString(),
+            };
+
           setMessages(
-            (previous) => [
+            (
+              previous
+            ) => [
               ...previous,
-              optimisticUserMessage,
+              placeholder,
             ]
           );
         }
 
-        const placeholder:
-          Message = {
-            id:
-              STREAMING_ID,
-
-            conversationId,
-
-            role:
-              'assistant',
-
-            content: '',
-
-            createdAt:
-              new Date()
-                .toISOString(),
-          };
-
-        setMessages(
-          (previous) => [
-            ...previous,
-            placeholder,
-          ]
-        );
-
         return starter(
           {
             onToken:
-              (token) => {
+              (
+                token
+              ) => {
+                /*
+                 * The stream may still be
+                 * running after the user
+                 * switches chats.
+                 *
+                 * Keep consuming the SSE
+                 * connection, but only paint
+                 * tokens if its conversation
+                 * is currently visible.
+                 */
+                if (
+                  selectedConversationRef.current !==
+                  targetConversationId
+                ) {
+                  return;
+                }
+
                 setMessages(
-                  (previous) =>
+                  (
+                    previous
+                  ) =>
                     previous.map(
                       (
                         message
                       ) =>
                         message.id ===
-                        STREAMING_ID
+                          STREAMING_ID &&
+                        message.conversationId ===
+                          targetConversationId
                           ? {
                               ...message,
 
@@ -249,15 +424,28 @@ export function useChat(
               },
 
             onDone:
-              (saved) => {
+              (
+                saved
+              ) => {
+                if (
+                  selectedConversationRef.current !==
+                  targetConversationId
+                ) {
+                  return;
+                }
+
                 setMessages(
-                  (previous) =>
+                  (
+                    previous
+                  ) =>
                     previous.map(
                       (
                         message
                       ) =>
                         message.id ===
-                        STREAMING_ID
+                          STREAMING_ID &&
+                        message.conversationId ===
+                          targetConversationId
                           ? saved
                           : message
                     )
@@ -269,22 +457,34 @@ export function useChat(
                 message,
                 savedMessage
               ) => {
+                if (
+                  selectedConversationRef.current !==
+                  targetConversationId
+                ) {
+                  return;
+                }
+
                 setStreamError(
                   message
                 );
 
                 setMessages(
-                  (previous) =>
+                  (
+                    previous
+                  ) =>
                     previous.map(
                       (
                         item
                       ) =>
                         item.id ===
-                        STREAMING_ID
+                          STREAMING_ID &&
+                        item.conversationId ===
+                          targetConversationId
                           ? (
                               savedMessage ??
                               {
                                 ...item,
+
                                 error:
                                   message,
                               }
@@ -298,19 +498,83 @@ export function useChat(
           controller.signal
         ).finally(
           () => {
-            setIsStreaming(
-              false
-            );
+            const activeStream =
+              activeStreamsRef.current.get(
+                targetConversationId
+              );
 
-            abortRef.current =
-              null;
+            /*
+             * Only delete this entry if it
+             * still belongs to this exact
+             * controller.
+             */
+            if (
+              activeStream?.controller ===
+              controller
+            ) {
+              activeStreamsRef.current.delete(
+                targetConversationId
+              );
+            }
+
+            if (
+              selectedConversationRef.current ===
+              targetConversationId
+            ) {
+              setIsStreaming(
+                false
+              );
+
+              /*
+               * Reload from the database.
+               *
+               * This guarantees the visible
+               * conversation reflects the
+               * backend's saved version even
+               * if some UI tokens were missed
+               * during a conversation switch.
+               */
+              void conversationApi
+                .getConversation(
+                  targetConversationId
+                )
+                .then(
+                  (
+                    data
+                  ) => {
+                    if (
+                      selectedConversationRef.current !==
+                      targetConversationId
+                    ) {
+                      return;
+                    }
+
+                    setConversation(
+                      data
+                    );
+
+                    setMessages(
+                      data.messages
+                    );
+                  }
+                )
+                .catch(
+                  () => {
+                    /*
+                     * The stream itself already
+                     * handled errors. A refresh
+                     * failure should not replace
+                     * that result.
+                     */
+                  }
+                );
+            }
 
             onSettled?.();
           }
         );
       },
       [
-        conversationId,
         onSettled,
       ]
     );
@@ -318,13 +582,18 @@ export function useChat(
   const send =
     useCallback(
       async (
-        content: string,
+        content:
+          string,
+
         attachments:
           MessageAttachment[] =
             []
       ) => {
+        const targetConversationId =
+          conversationId;
+
         if (
-          !conversationId
+          !targetConversationId
         ) {
           return;
         }
@@ -334,7 +603,8 @@ export function useChat(
             id:
               `temp-${Date.now()}`,
 
-            conversationId,
+            conversationId:
+              targetConversationId,
 
             role:
               'user',
@@ -354,12 +624,14 @@ export function useChat(
           };
 
         await runStream(
+          targetConversationId,
+
           (
             handlers,
             signal
           ) =>
             chatApi.sendMessage(
-              conversationId,
+              targetConversationId,
 
               {
                 content,
@@ -389,14 +661,19 @@ export function useChat(
   const regenerate =
     useCallback(
       async () => {
+        const targetConversationId =
+          conversationId;
+
         if (
-          !conversationId
+          !targetConversationId
         ) {
           return;
         }
 
         setMessages(
-          (previous) => {
+          (
+            previous
+          ) => {
             const
               lastAssistantIndex =
                 [
@@ -431,13 +708,15 @@ export function useChat(
         );
 
         await runStream(
+          targetConversationId,
+
           (
             handlers,
             signal
           ) =>
             chatApi
               .regenerateMessage(
-                conversationId,
+                targetConversationId,
                 handlers,
                 signal
               )
@@ -452,23 +731,40 @@ export function useChat(
   const stop =
     useCallback(
       () => {
-        abortRef.current
-          ?.abort();
+        const targetConversationId =
+          conversationId;
 
         if (
-          conversationId
+          !targetConversationId
         ) {
-          void chatApi
-            .stopGeneration(
-              conversationId
-            );
+          return;
         }
+
+        const activeStream =
+          activeStreamsRef.current.get(
+            targetConversationId
+          );
+
+        activeStream
+          ?.controller
+          .abort();
+
+        activeStreamsRef.current.delete(
+          targetConversationId
+        );
+
+        void chatApi
+          .stopGeneration(
+            targetConversationId
+          );
 
         setIsStreaming(
           false
         );
       },
-      [conversationId]
+      [
+        conversationId,
+      ]
     );
 
   return {
@@ -481,6 +777,7 @@ export function useChat(
     send,
     stop,
     regenerate,
-    reload: load,
+    reload:
+      load,
   };
 }
