@@ -735,8 +735,7 @@ export async function handleAuthCallback(): Promise<AuthSession | null> {
     .replaceState(
       {},
       '',
-      window.location
-        .pathname
+      '/'
     );
 
   return session;
