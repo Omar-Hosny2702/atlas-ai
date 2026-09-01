@@ -76,6 +76,15 @@ export const config = {
   auth0Issuer:
     process.env.AUTH0_ISSUER ?? '',
 
+  auth0ManagementClientId:
+    process.env.AUTH0_MANAGEMENT_CLIENT_ID ?? '',
+
+  auth0ManagementClientSecret:
+    process.env.AUTH0_MANAGEMENT_CLIENT_SECRET ?? '',
+
+  atlasOwnerUserId:
+    process.env.ATLAS_OWNER_USER_ID ?? '',
+
   auth0Disabled:
     auth0DisabledSetting.toLowerCase() ===
       'true' ||

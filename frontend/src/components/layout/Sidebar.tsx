@@ -3,6 +3,7 @@ import {
   ChevronDown,
   Search,
   Settings,
+  Shield,
   X,
 } from 'lucide-react';
 
@@ -18,6 +19,7 @@ interface SidebarProps {
   onCloseMobile: () => void;
   onSelectConversation: (id: string) => void;
   onOpenSettings: () => void;
+  onOpenAdminUsers: () => void;
   searchInputRef: RefObject<HTMLInputElement>;
 }
 
@@ -28,6 +30,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
       onCloseMobile,
       onSelectConversation,
       onOpenSettings,
+      onOpenAdminUsers,
       searchInputRef,
     },
     ref
@@ -182,6 +185,23 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
 
           {/* Bottom account area */}
           <div className="border-t border-white/10">
+            <button
+              type="button"
+              onClick={onOpenAdminUsers}
+              className="
+                flex w-full items-center gap-3
+                px-5 py-3.5
+                text-sm text-white/75
+                transition
+                hover:bg-white/[0.05]
+                hover:text-white
+              "
+            >
+              <Shield size={18} />
+
+              <span>User Management</span>
+            </button>
+
             <button
               type="button"
               onClick={onOpenSettings}

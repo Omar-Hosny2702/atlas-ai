@@ -14,6 +14,7 @@ import conversationRoutes from './routes/conversationRoutes.js';
 import settingsRoutes from './routes/settingsRoutes.js';
 import healthRoutes from './routes/healthRoutes.js';
 import actionRoutes from './routes/actionRoutes.js';
+import adminRoutes from './routes/adminRoutes.js';
 
 // Ensure the database (and schema) exist before the server starts accepting traffic.
 getDatabase();
@@ -65,6 +66,7 @@ app.use('/api/conversations', conversationRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/actions', actionRoutes);
+app.use('/api/admin', adminRoutes);
 app.use(
   '/api/attachments',
   attachmentRoutes

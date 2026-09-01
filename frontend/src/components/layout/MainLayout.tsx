@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { ChatWindow } from '@/components/chat/ChatWindow';
 import { SettingsModal } from '@/components/settings/SettingsModal';
+import { UsersPage } from '@/components/admin/UsersPage';
 
 import { useConversations } from '@/context/ConversationContext';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -16,6 +17,11 @@ export function MainLayout() {
   const [
     settingsOpen,
     setSettingsOpen,
+  ] = useState(false);
+
+  const [
+    adminUsersOpen,
+    setAdminUsersOpen,
   ] = useState(false);
 
   const searchInputRef =
@@ -90,6 +96,10 @@ export function MainLayout() {
         onOpenSettings={() =>
           setSettingsOpen(true)
         }
+        onOpenAdminUsers={() => {
+          setAdminUsersOpen(true);
+          setMobileSidebarOpen(false);
+        }}
         searchInputRef={
           searchInputRef
         }
@@ -104,16 +114,24 @@ export function MainLayout() {
           overflow-hidden
         "
       >
-        <ChatWindow
-          conversationId={
-            activeId
-          }
-          onOpenSidebar={() =>
-            setMobileSidebarOpen(
-              true
-            )
-          }
-        />
+        {adminUsersOpen ? (
+          <UsersPage
+            onBack={() =>
+              setAdminUsersOpen(false)
+            }
+          />
+        ) : (
+          <ChatWindow
+            conversationId={
+              activeId
+            }
+            onOpenSidebar={() =>
+              setMobileSidebarOpen(
+                true
+              )
+            }
+          />
+        )}
       </main>
 
       <SettingsModal
