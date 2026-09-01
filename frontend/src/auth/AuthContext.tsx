@@ -38,7 +38,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const callbackSession = await handleAuthCallback();
         const resolved = callbackSession ?? readAuthSession();
-        if (mounted) setSession(resolved);
+
+        if (mounted) {
+          setSession(resolved);
+
+          if (resolved?.user.sub && typeof window.gtag === 'function') {
+            window.gtag('config', 'G-WGRWT22GMS', {
+              user_id: resolved.user.sub,
+            });
+          }
+
+          if (callbackSession && typeof window.gtag === 'function') {
+            window.gtag('event', 'login', {
+              method: 'Auth0',
+            });
+          }
+        }
       } catch (error) {
         if (mounted) {
           clearAuthSession();
