@@ -257,6 +257,24 @@ export function MessageBubble({
                   "
                 />
               </div>
+            ) : message.metadata?.generatedImage?.attachmentId ? (
+              <div
+                className="
+                  overflow-hidden
+                  rounded-2xl
+                "
+              >
+                <PrivateAttachment
+                  id={message.metadata.generatedImage.attachmentId}
+                  fileName="atlas-generated.jpg"
+                  mimeType={
+                    message.metadata.generatedImage.mimeType ??
+                    'image/jpeg'
+                  }
+                  sizeBytes={0}
+                  image
+                />
+              </div>
             ) : (
               <div
                 className="
