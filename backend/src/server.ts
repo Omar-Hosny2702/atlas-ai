@@ -20,6 +20,11 @@ import adminRoutes from './routes/adminRoutes.js';
 getDatabase();
 
 const app = express();
+
+// Vercel runs the API behind a reverse proxy. Trust the first proxy so
+// express-rate-limit can safely identify clients from X-Forwarded-For.
+app.set('trust proxy', 1);
+
 const allowedOrigins = new Set([...config.corsOrigins, 'http://localhost:5173']);
 const corsOptions = {
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
