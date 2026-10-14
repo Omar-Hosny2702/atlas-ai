@@ -214,7 +214,7 @@ export function CodeBlock({
         overflow-hidden
         rounded-2xl
         border border-black/[0.08]
-        bg-[#11141a]
+        bg-ink
         shadow-sm
         dark:border-white/[0.09]
       "
@@ -225,7 +225,7 @@ export function CodeBlock({
           items-center
           justify-between
           border-b border-white/[0.07]
-          bg-[#171a21]
+          bg-ink-alt
           px-4
           py-2.5
         "
@@ -285,7 +285,7 @@ export function CodeBlock({
           lineHeight: '1.65',
           padding: '1.1em 1.2em',
           background:
-            '#11141a',
+            '#050a13',
         }}
         codeTagProps={{
           style: {

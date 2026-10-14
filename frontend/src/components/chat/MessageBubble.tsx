@@ -97,12 +97,12 @@ export function MessageBubble({
               overflow-hidden
               rounded-[20px]
               rounded-br-[7px]
-              bg-[#1b1f27]
+              bg-ink-raised
               text-[0.95rem]
               leading-relaxed
               text-white
               shadow-sm
-              dark:bg-[#20242d]
+              dark:bg-ink-raised
             "
           >
             {imageAttachments.length >

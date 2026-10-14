@@ -55,6 +55,7 @@ async function consumeSseStream(
 
   let buffer = '';
 
+  // eslint-disable-next-line no-constant-condition -- stream until the reader reports done.
   while (true) {
     const {
       value,

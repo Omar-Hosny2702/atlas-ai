@@ -7,7 +7,7 @@ import {
   X,
 } from 'lucide-react';
 
-import { Logo } from '@/components/common/Logo';
+import { Logo, AtlasWordmark } from '@/components/common/Logo';
 import { IconButton } from '@/components/common/IconButton';
 import { ConversationList } from '@/components/sidebar/ConversationList';
 
@@ -84,7 +84,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
             fixed inset-y-0 left-0 z-40
             flex w-[300px] shrink-0 flex-col
             border-r border-white/10
-            bg-[#080a0f]
+            bg-ink-alt
             text-white
             transition-transform duration-200 ease-out
             md:static
@@ -98,9 +98,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
             <div className="flex min-w-0 items-center gap-3">
               <Logo size={30} />
 
-              <span className="truncate font-display text-lg font-semibold">
-                Atlas AI
-              </span>
+              <AtlasWordmark className="truncate text-lg text-white" />
             </div>
 
             <IconButton
@@ -137,7 +135,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
                   outline-none
                   placeholder:text-white/35
                   transition
-                  focus:border-white/20
+                  focus:border-accent-dark/60
                   focus:bg-white/[0.06]
                 "
               />
@@ -153,11 +151,11 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
                 flex h-11 w-full
                 items-center justify-center gap-2
                 rounded-xl
-                bg-accent-500
+                bg-accent-dark
                 px-4
-                text-sm font-semibold text-white
+                text-sm font-semibold text-ink
                 transition
-                hover:bg-accent-600
+                hover:bg-accent-300
                 active:scale-[0.99]
               "
             >
@@ -243,8 +241,8 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
                     flex h-10 w-10 shrink-0
                     items-center justify-center
                     rounded-full
-                    bg-accent-500
-                    text-sm font-semibold text-white
+                    bg-accent-dark
+                    text-sm font-semibold text-ink
                   "
                 >
                   {initials}

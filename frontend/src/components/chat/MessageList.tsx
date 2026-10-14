@@ -142,7 +142,7 @@ export function MessageList({
             transition
             hover:bg-black/[0.03]
             dark:border-white/10
-            dark:bg-[#151820]
+            dark:bg-ink-alt
             dark:text-paper
             dark:hover:bg-white/[0.08]
           "
