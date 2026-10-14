@@ -40,9 +40,7 @@ import {
   IconButton,
 } from '@/components/common/IconButton';
 
-import {
-  Logo,
-} from '@/components/common/Logo';
+import { AtlasField } from '@/components/common/AtlasField';
 
 import {
   ConversationSettingsModal,
@@ -1600,24 +1598,7 @@ const firstName =
 
         <div className="flex grow items-center justify-center px-6 pb-24">
           <div className="flex max-w-xl flex-col items-center text-center">
-            <div
-              className="
-                mb-5 flex h-16 w-16
-                items-center justify-center
-                rounded-2xl
-                border border-black/[0.06]
-                bg-black/[0.03]
-                shadow-sm
-                dark:border-white/10
-                dark:bg-white/[0.05]
-              "
-            >
-              <Logo
-                size={
-                  40
-                }
-              />
-            </div>
+            <AtlasField size="clamp(150px, 26vh, 240px)" className="mb-2" />
 
             <h1
               className="
@@ -1870,26 +1851,7 @@ const firstName =
         !hasMessages ? (
           <div className="flex grow items-center justify-center px-6 pb-10">
             <div className="flex max-w-xl flex-col items-center text-center">
-              <div
-                className="
-                  mb-5 flex h-16 w-16
-                  items-center
-                  justify-center
-                  rounded-2xl
-                  border
-                  border-black/[0.06]
-                  bg-black/[0.03]
-                  shadow-sm
-                  dark:border-white/10
-                  dark:bg-white/[0.05]
-                "
-              >
-                <Logo
-                  size={
-                    40
-                  }
-                />
-              </div>
+              <AtlasField size="clamp(150px, 26vh, 240px)" className="mb-2" />
 
               <h1
                 className="

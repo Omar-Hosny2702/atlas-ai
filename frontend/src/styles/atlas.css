@@ -1,0 +1,120 @@
+/* Atlas visual system — import ONCE from your main stylesheet, after the @tailwind directives:
+ *   @import './styles/atlas.css';   (or `import './styles/atlas.css'` in main.tsx)
+ * Everything here is additive. No existing selector is redefined. */
+
+:root,
+.light {
+  --atlas-accent: #0b6f8c;
+  --atlas-accent-soft: rgb(11 111 140 / 0.14);
+  --atlas-grid: rgb(10 19 34 / 0.06);
+  --atlas-font-sans: 'Geist', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --atlas-font-display: 'Geist', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --atlas-font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.dark {
+  --atlas-accent: #53d3ee;
+  --atlas-accent-soft: rgb(83 211 238 / 0.16);
+  --atlas-grid: rgb(143 163 191 / 0.07);
+}
+
+/* Visible keyboard focus everywhere, without overriding components that set their own outline */
+:where(button, a, input, textarea, select, summary, [role='button'], [tabindex]):focus-visible {
+  outline: 2px solid var(--atlas-accent);
+  outline-offset: 2px;
+}
+
+/* Page backdrop: fine grid fading into the navy, used by the login screen */
+.atlas-backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 50% at 50% 28%, var(--atlas-accent-soft), transparent 70%),
+    linear-gradient(var(--atlas-grid) 1px, transparent 1px) 0 0 / 44px 44px,
+    linear-gradient(90deg, var(--atlas-grid) 1px, transparent 1px) 0 0 / 44px 44px;
+  -webkit-mask-image: radial-gradient(80% 70% at 50% 35%, #000 30%, transparent 100%);
+  mask-image: radial-gradient(80% 70% at 50% 35%, #000 30%, transparent 100%);
+}
+
+/* ── Logo mark: travelling highlight along the orbit (opt-in via `animated`) ── */
+.atlas-mark__sweep {
+  stroke-dasharray: 22 78;
+  animation: atlas-orbit-sweep 2.4s linear infinite;
+}
+@keyframes atlas-orbit-sweep {
+  from { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: -100; }
+}
+
+/* ── AtlasField: CSS-3D orbit centrepiece. Transform-only animation, no WebGL. ── */
+.atlas-field {
+  position: relative;
+  width: var(--af-size, 260px);
+  height: var(--af-size, 260px);
+  perspective: 900px;
+  pointer-events: none;
+}
+.atlas-field__scene {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--af-rx, 0deg)) rotateY(var(--af-ry, 0deg));
+  transition: transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.atlas-field__plane {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: rotateX(64deg);
+}
+.atlas-field__ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--d);
+  height: var(--d);
+  margin: calc(var(--d) / -2) 0 0 calc(var(--d) / -2);
+  border-radius: 50%;
+  border: 1px solid var(--atlas-accent);
+  border-color: color-mix(in srgb, var(--atlas-accent) 42%, transparent);
+  transform: translateZ(var(--z, 0px));
+  transform-style: preserve-3d;
+  animation: atlas-ring-spin var(--t, 30s) linear infinite var(--dir, normal);
+  animation-play-state: paused;
+}
+.atlas-field[data-active='true'] .atlas-field__ring { animation-play-state: running; }
+.atlas-field__node {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 50%;
+  background: var(--atlas-accent);
+  box-shadow: 0 0 14px 1px color-mix(in srgb, var(--atlas-accent) 70%, transparent);
+}
+.atlas-field__core {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.atlas-field__core::before {
+  content: '';
+  position: absolute;
+  width: 62%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--atlas-accent-soft), transparent);
+}
+@keyframes atlas-ring-spin {
+  to { transform: translateZ(var(--z, 0px)) rotateZ(360deg); }
+}
+
+/* Reduced motion: stop all decorative animation and parallax; layout and colour stay identical */
+@media (prefers-reduced-motion: reduce) {
+  .atlas-field__ring,
+  .atlas-mark__sweep { animation: none !important; }
+  .atlas-field__scene { transition: none; transform: none; }
+}

@@ -1,3 +1,7 @@
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const atlas = require('./tailwind.atlas-theme.cjs');
+
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: 'class',
@@ -5,56 +9,14 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Paper / ink — the two base surfaces, named for the atlas/cartography
-        // identity rather than generic "gray-50/gray-900".
-        paper: {
-          DEFAULT: '#FAFAF7',
-          alt: '#F1EFEA',
-        },
-        ink: {
-          DEFAULT: '#0E1116',
-          alt: '#161B22',
-          raised: '#1C2230',
-        },
-        border: {
-          light: '#E5E3DD',
-          dark: '#262C36',
-        },
-        muted: {
-          light: '#6B7280',
-          dark: '#8B93A0',
-        },
-        // Primary accent: a chart/compass teal. Used for interactive elements.
-        accent: {
-          50: '#EAF7F3',
-          100: '#CDEEE3',
-          200: '#9BDCC8',
-          300: '#65C6AA',
-          400: '#38AF8E',
-          500: '#1F8A70',
-          600: '#187360',
-          700: '#145C4D',
-          800: '#11493E',
-          900: '#0D3A32',
-          light: '#1F8A70',
-          dark: '#2DD4A8',
-        },
-        // Secondary accent: a compass-rose gold, used sparingly for the
-        // signature contour/marker motif — never for primary UI actions.
+        ...atlas.colors,
         gold: {
           light: '#B8892A',
           dark: '#D8B54C',
         },
-        danger: {
-          light: '#C53434',
-          dark: '#E5605F',
-        },
       },
-      fontFamily: {
-        display: ['"Space Grotesk"', 'system-ui', 'sans-serif'],
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
-      },
+      fontFamily: atlas.fontFamily,
+      boxShadow: atlas.boxShadow,
       keyframes: {
         'fade-in': {
           '0%': { opacity: '0', transform: 'translateY(4px)' },

@@ -11,12 +11,13 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<Variant, string> = {
   primary:
-    'bg-accent-500 text-white hover:bg-accent-600 dark:bg-accent-dark dark:text-ink dark:hover:bg-accent-300',
+    'bg-accent-500 text-white hover:bg-accent-600 dark:bg-accent-dark dark:text-ink dark:hover:bg-accent-300 dark:shadow-[inset_0_1px_0_rgb(255_255_255/0.25)]',
   secondary:
-    'bg-paper-alt text-ink hover:bg-border-light dark:bg-ink-raised dark:text-paper dark:hover:bg-ink-alt',
+    'border border-border-light bg-paper-alt/60 text-ink hover:bg-paper-alt dark:border-border-dark dark:bg-ink-raised dark:text-paper dark:hover:border-accent-dark/40',
   ghost:
     'bg-transparent text-ink hover:bg-paper-alt dark:text-paper dark:hover:bg-ink-raised',
-  danger: 'bg-danger-light text-white hover:opacity-90 dark:bg-danger-dark',
+  danger:
+    'bg-danger-light text-white hover:opacity-90 dark:bg-danger-dark dark:text-ink',
 };
 
 const sizeClasses: Record<Size, string> = {
@@ -30,8 +31,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         className={clsx(
-          'inline-flex items-center justify-center font-medium transition-colors duration-150',
-          'disabled:opacity-50 disabled:cursor-not-allowed',
+          'inline-flex items-center justify-center font-medium transition-[background-color,border-color,transform] duration-150',
+          'active:translate-y-px disabled:opacity-50 disabled:cursor-not-allowed disabled:active:translate-y-0',
           variantClasses[variant],
           sizeClasses[size],
           className
