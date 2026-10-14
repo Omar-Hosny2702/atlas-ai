@@ -24,12 +24,15 @@ const AUTH_SESSION_KEY = 'atlas-auth-session';
 const AUTH_REQUEST_KEY = 'atlas-auth-request';
 
 function getEnvValue(name: string): string {
-  const value =
-    (import.meta.env[name] ?? '')
-      .toString()
-      .trim();
+  const env: Record<string, string | undefined> = {
+    VITE_AUTH0_DOMAIN: import.meta.env.VITE_AUTH0_DOMAIN,
+    VITE_AUTH0_CLIENT_ID: import.meta.env.VITE_AUTH0_CLIENT_ID,
+    VITE_AUTH0_AUDIENCE: import.meta.env.VITE_AUTH0_AUDIENCE,
+    VITE_AUTH0_REDIRECT_URI: import.meta.env.VITE_AUTH0_REDIRECT_URI,
+    VITE_AUTH0_SCOPE: import.meta.env.VITE_AUTH0_SCOPE,
+  };
 
-  return value;
+  return (env[name] ?? '').trim();
 }
 
 function normalizeAuthDomain(
