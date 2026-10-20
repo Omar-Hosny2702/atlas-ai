@@ -32,7 +32,7 @@ interface SettingsContextValue {
 const SettingsContext = createContext<SettingsContextValue | null>(null);
 
 const FALLBACK_DEFAULTS: NewChatDefaults = {
-  model: 'gemini-2.5-flash',
+  model: 'gemini-3.8-flash',
   systemPrompt: 'You are Atlas AI, a helpful, honest, and direct assistant.',
   temperature: 0.7,
   maxTokens: 2048,
@@ -57,7 +57,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setOptions(data);
       if (!data.ollama.reachable) {
         showToast(
-          "Can't reach Ollama. Start it with \"ollama serve\" to send messages.",
+          "Gemini isn't reachable right now. NVIDIA models can still work if NVIDIA_API_KEY is configured.",
           'error'
         );
       }
