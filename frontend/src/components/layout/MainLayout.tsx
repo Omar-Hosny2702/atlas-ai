@@ -4,6 +4,7 @@ import { Sidebar } from './Sidebar';
 import { ChatWindow } from '@/components/chat/ChatWindow';
 import { SettingsModal } from '@/components/settings/SettingsModal';
 import { UsersPage } from '@/components/admin/UsersPage';
+import { WorkPanel } from './WorkPanel';
 
 import { useConversations } from '@/context/ConversationContext';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -24,6 +25,8 @@ export function MainLayout() {
     setAdminUsersOpen,
   ] = useState(false);
 
+  const [workOpen, setWorkOpen] = useState(false);
+
   const searchInputRef =
     useRef<HTMLInputElement>(null);
 
@@ -37,6 +40,8 @@ export function MainLayout() {
     id: string
   ) => {
     selectConversation(id);
+    setWorkOpen(false);
+    setAdminUsersOpen(false);
     setMobileSidebarOpen(false);
   };
 
@@ -98,6 +103,12 @@ export function MainLayout() {
         }
         onOpenAdminUsers={() => {
           setAdminUsersOpen(true);
+          setWorkOpen(false);
+          setMobileSidebarOpen(false);
+        }}
+        onOpenWork={() => {
+          setWorkOpen(true);
+          setAdminUsersOpen(false);
           setMobileSidebarOpen(false);
         }}
         searchInputRef={
@@ -120,6 +131,8 @@ export function MainLayout() {
               setAdminUsersOpen(false)
             }
           />
+        ) : workOpen ? (
+          <WorkPanel onBack={() => setWorkOpen(false)} />
         ) : (
           <ChatWindow
             conversationId={
