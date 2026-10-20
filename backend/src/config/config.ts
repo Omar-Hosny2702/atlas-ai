@@ -65,7 +65,7 @@ export const config = {
 
   defaultModel:
     process.env.DEFAULT_MODEL ??
-    'gemini-2.5-flash',
+    'gemini-3.8-flash',
 
   auth0Domain:
     process.env.AUTH0_DOMAIN ?? '',
