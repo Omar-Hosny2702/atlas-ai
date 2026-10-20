@@ -13,6 +13,7 @@ import {
 
 import {
   getModelById,
+  DEFAULT_MODEL_ID,
   clamp,
   PARAM_BOUNDS,
 } from '../ai/modelConfig.js';
@@ -36,7 +37,13 @@ export interface GenerationParams {
 }
 
 const DEFAULT_MODEL =
-  'gemini-2.5-flash';
+  DEFAULT_MODEL_ID;
+
+const NVIDIA_API_BASE_URL =
+  'https://integrate.api.nvidia.com/v1';
+
+const nvidiaApiKey =
+  process.env.NVIDIA_API_KEY;
 
 /*
  * Inline image data expands when converted
@@ -966,6 +973,251 @@ function getGeminiErrorMessage(
       502,
   };
 }
+
+type NvidiaTextPart = {
+  type: 'text';
+  text: string;
+};
+
+type NvidiaImagePart = {
+  type: 'image_url';
+  image_url: {
+    url: string;
+  };
+};
+
+type NvidiaMessage = {
+  role: 'system' | 'user' | 'assistant';
+  content: string | Array<NvidiaTextPart | NvidiaImagePart>;
+};
+
+function toNvidiaMessages(
+  contents: GeminiContent[],
+  systemInstruction?: string
+): NvidiaMessage[] {
+  const messages: NvidiaMessage[] = [];
+
+  if (systemInstruction?.trim()) {
+    messages.push({
+      role: 'system',
+      content: systemInstruction,
+    });
+  }
+
+  for (const item of contents) {
+    const parts = item.parts.map((part): NvidiaTextPart | NvidiaImagePart => {
+      if ('text' in part) {
+        return {
+          type: 'text',
+          text: part.text,
+        };
+      }
+
+      return {
+        type: 'image_url',
+        image_url: {
+          url: \`data:\${part.inlineData.mimeType};base64,\${part.inlineData.data}\`,
+        },
+      };
+    });
+
+    const role = item.role === 'model' ? 'assistant' : 'user';
+    const isTextOnly = parts.every((part) => part.type === 'text');
+
+    messages.push({
+      role,
+      content: isTextOnly
+        ? parts.map((part) => part.type === 'text' ? part.text : '').join('\\n')
+        : parts,
+    });
+  }
+
+  return messages;
+}
+
+function getNvidiaHttpError(status: number): AppError {
+  if (status === 401 || status === 403) {
+    return new AppError(
+      'Atlas could not authenticate with NVIDIA. Check the NVIDIA API key configuration.',
+      503
+    );
+  }
+
+  if (status === 429) {
+    return new AppError(
+      'NVIDIA API rate or usage limit reached. Please try again later.',
+      429
+    );
+  }
+
+  if (status >= 500) {
+    return new AppError(
+      'NVIDIA is temporarily unavailable. Please try again shortly.',
+      502
+    );
+  }
+
+  return new AppError(
+    'NVIDIA could not complete this request. Check the model settings and try again.',
+    502
+  );
+}
+
+async function streamNvidiaChatCompletion(
+  history: ChatHistoryMessage[],
+  params: GenerationParams,
+  onToken: (token: string) => void,
+  signal: AbortSignal
+): Promise<{
+  fullText: string;
+  stopped: boolean;
+}> {
+  if (!nvidiaApiKey) {
+    throw new AppError(
+      'NVIDIA_API_KEY is not set. Add it to backend/.env and restart the server.',
+      503
+    );
+  }
+
+  const { contents, systemInstruction } =
+    await toGeminiRequest(history);
+
+  const messages = toNvidiaMessages(
+    contents,
+    systemInstruction
+  );
+
+  let fullText = '';
+  let stopped = false;
+
+  try {
+    const response = await fetch(
+      \`\${NVIDIA_API_BASE_URL}/chat/completions\`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: \`Bearer \${nvidiaApiKey}\`,
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream',
+        },
+        body: JSON.stringify({
+          model: params.model,
+          messages,
+          temperature: params.temperature,
+          top_p: params.topP,
+          max_tokens: params.maxTokens,
+          stream: true,
+        }),
+        signal,
+      }
+    );
+
+    if (!response.ok) {
+      logger.warn('NVIDIA chat request failed', {
+        status: response.status,
+      });
+
+      throw getNvidiaHttpError(response.status);
+    }
+
+    if (!response.body) {
+      throw new AppError(
+        'NVIDIA returned an empty streaming response.',
+        502
+      );
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    const consumeLine = (line: string): void => {
+      const trimmed = line.trim();
+
+      if (!trimmed.startsWith('data:')) {
+        return;
+      }
+
+      const data = trimmed.slice(5).trim();
+
+      if (!data || data === '[DONE]') {
+        return;
+      }
+
+      try {
+        const event = JSON.parse(data) as {
+          choices?: Array<{
+            delta?: {
+              content?: unknown;
+            };
+          }>;
+        };
+
+        const token = event.choices?.[0]?.delta?.content;
+
+        // Deliberately ignore provider reasoning fields; only user-facing text is streamed.
+        if (typeof token === 'string' && token.length > 0) {
+          fullText += token;
+          onToken(token);
+        }
+      } catch {
+        // Ignore malformed/non-JSON SSE lines and continue the stream.
+      }
+    };
+
+    while (true) {
+      if (signal.aborted) {
+        stopped = true;
+        await reader.cancel();
+        break;
+      }
+
+      const { done, value } = await reader.read();
+
+      if (done) {
+        break;
+      }
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split(/\\r?\\n/);
+      buffer = lines.pop() ?? '';
+
+      for (const line of lines) {
+        consumeLine(line);
+      }
+    }
+
+    buffer += decoder.decode();
+
+    if (buffer.trim()) {
+      consumeLine(buffer);
+    }
+  } catch (err) {
+    if (signal.aborted) {
+      return {
+        fullText,
+        stopped: true,
+      };
+    }
+
+    if (err instanceof AppError) {
+      throw err;
+    }
+
+    logger.error('Error while streaming from NVIDIA', err);
+
+    throw new AppError(
+      'Atlas could not connect to NVIDIA. Please check the connection and try again.',
+      502
+    );
+  }
+
+  return {
+    fullText,
+    stopped,
+  };
+}
+
 export async function streamChatCompletion(
   history:
     ChatHistoryMessage[],
@@ -985,17 +1237,26 @@ export async function streamChatCompletion(
   fullText: string;
   stopped: boolean;
 }> {
+  const safeParams =
+    sanitizeParams(
+      params
+    );
+
+  if (safeParams.model.startsWith('nvidia/')) {
+    return streamNvidiaChatCompletion(
+      history,
+      safeParams,
+      onToken,
+      signal
+    );
+  }
+
   if (!apiKey) {
     throw new AppError(
       'GEMINI_API_KEY is not set. Add it to backend/.env and restart the server.',
       503
     );
   }
-
-  const safeParams =
-    sanitizeParams(
-      params
-    );
 
   /*
    * Async because relevant private image
