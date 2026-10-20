@@ -1016,7 +1016,7 @@ function toNvidiaMessages(
       return {
         type: 'image_url',
         image_url: {
-          url: \`data:\${part.inlineData.mimeType};base64,\${part.inlineData.data}\`,
+          url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
         },
       };
     });
@@ -1027,7 +1027,7 @@ function toNvidiaMessages(
     messages.push({
       role,
       content: isTextOnly
-        ? parts.map((part) => part.type === 'text' ? part.text : '').join('\\n')
+        ? parts.map((part) => part.type === 'text' ? part.text : '').join('\n')
         : parts,
     });
   }
@@ -1092,11 +1092,11 @@ async function streamNvidiaChatCompletion(
 
   try {
     const response = await fetch(
-      \`\${NVIDIA_API_BASE_URL}/chat/completions\`,
+      `${NVIDIA_API_BASE_URL}/chat/completions`,
       {
         method: 'POST',
         headers: {
-          Authorization: \`Bearer \${nvidiaApiKey}\`,
+          Authorization: `Bearer ${nvidiaApiKey}`,
           'Content-Type': 'application/json',
           Accept: 'text/event-stream',
         },
@@ -1179,7 +1179,7 @@ async function streamNvidiaChatCompletion(
       }
 
       buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split(/\\r?\\n/);
+      const lines = buffer.split(/\r?\n/);
       buffer = lines.pop() ?? '';
 
       for (const line of lines) {
