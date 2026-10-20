@@ -1,27 +1,19 @@
 /**
- * ai/modelConfig.ts
- *
- * Central definition of the open-source language models Atlas AI knows how to
- * drive, plus the default generation parameters for each. This file is the
- * single source of truth for "what models exist" — the backend imports it to
- * validate requests, and the frontend's /api/settings/models endpoint mirrors
- * it to the UI so the model picker never drifts out of sync with reality.
- *
- * Atlas AI talks to models through Ollama (https://ollama.com), a local
- * runtime for open-source LLMs. Any model in Ollama's library can be added
- * here — nothing below is specific to one model family.
+ * Central registry of models available to Atlas AI.
+ * The backend validates model selections here, and the settings API exposes
+ * this same registry so the model picker stays in sync with the providers.
  */
 
 export interface ModelDefinition {
-  /** The identifier Ollama expects, e.g. "llama3.1:8b" */
+  /** Provider-specific model identifier. */
   id: string;
-  /** Human-readable name shown in the UI */
+  /** Human-readable name shown in the UI. */
   label: string;
-  /** Short description shown under the model name in Settings */
+  /** Short description shown under the model name in Settings. */
   description: string;
-  /** Approximate context window in tokens, used for history truncation */
+  /** Approximate context window in tokens, used for history truncation. */
   contextWindow: number;
-  /** Sensible default generation parameters for this model */
+  /** Sensible default generation parameters for this model. */
   defaults: {
     temperature: number;
     maxTokens: number;
@@ -31,26 +23,39 @@ export interface ModelDefinition {
 
 export const AVAILABLE_MODELS: ModelDefinition[] = [
   {
+    id: 'gemini-3.8-flash',
+    label: 'Gemini 3.8 Flash',
+    description: "Google's fast model for coding and agent workflows.",
+    contextWindow: 1048576,
+    defaults: { temperature: 0.7, maxTokens: 2048, topP: 0.9 },
+  },
+  {
+    id: 'gemini-4-argon',
+    label: 'Gemini 4 Argon',
+    description: "Google's advanced reasoning model for complex tasks.",
+    contextWindow: 1048576,
+    defaults: { temperature: 0.7, maxTokens: 2048, topP: 0.9 },
+  },
+  {
     id: 'gemini-2.5-flash',
     label: 'Gemini 2.5 Flash',
     description: "Google's fast multimodal model.",
     contextWindow: 1048576,
-    defaults: {
-      temperature: 0.7,
-      maxTokens: 2048,
-      topP: 0.9,
-    },
+    defaults: { temperature: 0.7, maxTokens: 2048, topP: 0.9 },
   },
   {
     id: 'gemini-2.5-pro',
     label: 'Gemini 2.5 Pro',
     description: "Google's most capable reasoning model.",
     contextWindow: 1048576,
-    defaults: {
-      temperature: 0.7,
-      maxTokens: 2048,
-      topP: 0.9,
-    },
+    defaults: { temperature: 0.7, maxTokens: 2048, topP: 0.9 },
+  },
+  {
+    id: 'nvidia/nemotron-3.5-super-vl-120b-a12b',
+    label: 'NVIDIA Nemotron 3.5 Super VL',
+    description: "NVIDIA's multimodal model for reasoning, coding, and image understanding.",
+    contextWindow: 262144,
+    defaults: { temperature: 1, maxTokens: 4096, topP: 0.95 },
   },
 ];
 
