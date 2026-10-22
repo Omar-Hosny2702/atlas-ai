@@ -1,3 +1,4 @@
+
 import { useRef, useState } from 'react';
 
 import { Sidebar } from './Sidebar';
@@ -87,36 +88,30 @@ export function MainLayout() {
         dark:text-paper
       "
     >
-      {sidebarVisible && <Sidebar
-        isMobileOpen={
-          isMobileSidebarOpen
-        }
-        onCloseMobile={() =>
-          setMobileSidebarOpen(
-            false
-          )
-        }
-        onSelectConversation={
-          handleSelect
-        }
-        onOpenSettings={() =>
-          setSettingsOpen(true)
-        }
-        onOpenAdminUsers={() => {
-          setAdminUsersOpen(true);
-          setWorkOpen(false);
-          setMobileSidebarOpen(false);
-        }}
-        onOpenWork={() => {
-          setWorkOpen(true);
-          setSidebarVisible(false);
-          setAdminUsersOpen(false);
-          setMobileSidebarOpen(false);
-        }}
-        searchInputRef={
-          searchInputRef
-        }
-      />}
+      {sidebarVisible && (
+        <Sidebar
+          isMobileOpen={isMobileSidebarOpen}
+          onCloseMobile={() =>
+            setMobileSidebarOpen(false)
+          }
+          onSelectConversation={handleSelect}
+          onOpenSettings={() =>
+            setSettingsOpen(true)
+          }
+          onOpenAdminUsers={() => {
+            setAdminUsersOpen(true);
+            setWorkOpen(false);
+            setMobileSidebarOpen(false);
+          }}
+          onOpenWork={() => {
+            setWorkOpen(true);
+            setSidebarVisible(false);
+            setAdminUsersOpen(false);
+            setMobileSidebarOpen(false);
+          }}
+          searchInputRef={searchInputRef}
+        />
+      )}
 
       <main
         className="
@@ -138,6 +133,7 @@ export function MainLayout() {
             ☰
           </button>
         )}
+
         {adminUsersOpen ? (
           <UsersPage
             onBack={() =>
@@ -145,16 +141,14 @@ export function MainLayout() {
             }
           />
         ) : workOpen ? (
-          <WorkPanel onBack={() => setWorkOpen(false)} />
+          <WorkPanel
+            onBack={() => setWorkOpen(false)}
+          />
         ) : (
           <ChatWindow
-            conversationId={
-              activeId
-            }
+            conversationId={activeId}
             onOpenSidebar={() =>
-              setMobileSidebarOpen(
-                true
-              )
+              setMobileSidebarOpen(true)
             }
           />
         )}

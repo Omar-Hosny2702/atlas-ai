@@ -1,3 +1,4 @@
+
 import { forwardRef, type RefObject } from 'react';
 import {
   BriefcaseBusiness,
@@ -170,7 +171,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
             </button>
           </div>
 
-          {/* Work */}
+          {/* Work / Agent */}
           <div className="px-4 pt-2">
             <button
               type="button"
@@ -178,7 +179,12 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
               className="flex h-11 w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-medium text-white/85 transition hover:border-accent-dark/50 hover:bg-white/[0.08] hover:text-white"
             >
               <BriefcaseBusiness size={18} />
-              <span>Agent</span>
+
+              <span>Work</span>
+
+              <span className="ml-auto text-xs text-white/40">
+                Agent
+              </span>
             </button>
           </div>
 

@@ -1,0 +1,92 @@
+/* Shared styles for the static fallback pages (offline.html, 404.html).
+   Colours and fonts come from /tokens.css, which every page links first. */
+*, *::before, *::after { box-sizing: border-box; }
+html { background: var(--bg); }
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  overflow-x: hidden;
+  color: var(--fg);
+  font-family: var(--font-body);
+  line-height: 1.55;
+  text-align: center;
+  background: radial-gradient(120% 70% at 50% -12%, var(--glow), transparent 62%), var(--bg);
+}
+.wrap { position: relative; isolation: isolate; width: min(520px, 100%); padding: 56px 8px; }
+.orbit {
+  position: relative;
+  width: 168px;
+  height: 168px;
+  margin: 0 auto 28px;
+}
+.orbit .ring {
+  position: absolute;
+  inset: 0;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: 50%;
+  transform: rotate(-16deg) scaleY(0.36);
+}
+.orbit .ring i {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  animation: spin 14s linear infinite;
+}
+.orbit .ring i::after {
+  content: '';
+  position: absolute;
+  left: 50%; top: 0;
+  width: 12px; height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 12px 2px var(--accent), 0 0 30px 6px var(--line-strong);
+}
+.orbit svg { position: absolute; inset: 22%; width: 56%; height: 56%; color: var(--fg); animation: float 6s ease-in-out infinite; }
+.code {
+  margin: 0 0 6px;
+  font: 800 clamp(4rem, 18vw, 7rem) / 1 var(--font-display);
+  letter-spacing: -0.045em;
+  color: var(--accent);
+  text-shadow: 0 0 40px var(--line-strong);
+}
+h1 {
+  margin: 0 0 12px;
+  font: 800 clamp(2rem, 6vw, 3rem) / 1 var(--font-display);
+  letter-spacing: -0.035em;
+}
+p { margin: 0 auto 28px; max-width: 30rem; color: var(--muted); }
+.row { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5em;
+  padding: .85em 1.5em;
+  border: 2px solid var(--on-accent);
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+  color: var(--on-accent);
+  font: 700 .98rem/1 var(--font-body);
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.btn:hover { transform: translateY(-3px); box-shadow: 0 0 0 2px var(--accent), 6px 6px 0 2px var(--accent-deep); }
+.btn.ghost { background: transparent; color: var(--fg); border-color: var(--line-strong); box-shadow: none; }
+.btn.ghost:hover { box-shadow: 6px 6px 0 var(--line-strong); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.help { margin: 28px auto 0; font-size: .88rem; color: var(--muted); }
+.help a { color: var(--accent); text-decoration: none; overflow-wrap: anywhere; }
+.help a:hover { text-decoration: underline; }
+.wordmark {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: -1;
+  height: .6em; overflow: hidden;
+  font: 800 clamp(7rem, 30vw, 27rem) / .8 var(--font-display);
+  letter-spacing: -.06em; color: var(--wordmark); user-select: none; white-space: nowrap;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes float { 50% { transform: translateY(-8px); } }
+@media (max-width: 480px) { .row .btn { width: 100%; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

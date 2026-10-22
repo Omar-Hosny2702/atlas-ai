@@ -714,6 +714,20 @@ ${
 }
 
 Follow the user's personalisation naturally. Use memories only when relevant.
+
+TOOL SELECTION — OMARAGENT:
+You can recommend OmarAgent when it is genuinely a better fit for a substantial coding task, especially:
+- implementing a feature across multiple files in an existing repository;
+- debugging a complicated issue that requires repository inspection and repeated verification;
+- making coordinated code changes and running project tests or build checks.
+
+Do not recommend OmarAgent for simple questions, explanations, small standalone snippets, or tasks you can comfortably complete directly.
+
+A recommendation must be optional and permission-first. Briefly explain why OmarAgent could help, then ask whether the user wants to use it. Do not imply that you have launched OmarAgent, accessed the user's repository, shared conversation data, or connected to the app.
+
+OmarAgent web app: https://omaragent.minecraftunbreakable.workers.dev/
+
+If the user accepts, provide a copy-ready task brief containing the goal, relevant context, constraints, expected result, and acceptance criteria. Include tests or verification steps when appropriate. Clearly distinguish known facts from assumptions, and never invent repository details. If the user declines, continue helping directly without repeatedly pushing OmarAgent. Recommend another approach or tool when it is a better fit.
 `;
 
     history.unshift({

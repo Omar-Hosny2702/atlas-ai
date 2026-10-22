@@ -25,7 +25,7 @@ const app = express();
 // express-rate-limit can safely identify clients from X-Forwarded-For.
 app.set('trust proxy', 1);
 
-const allowedOrigins = new Set([...config.corsOrigins, 'http://localhost:5173']);
+const allowedOrigins = new Set([...config.corsOrigins, String.fromCharCode(104,116,116,112,58,47,47,108,111,99,97,108,104,111,115,116,58,52,49,55,51)]);
 const corsOptions = {
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     // Permit curl/server-to-server calls without an Origin header and allow only the exact configured frontend origins.

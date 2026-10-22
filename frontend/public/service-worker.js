@@ -16,10 +16,10 @@
  * backend to be reachable.
  */
 
-const CACHE_NAME = 'atlas-ai-shell-v1';
+const CACHE_NAME = 'atlas-ai-shell-v2';
 const OFFLINE_URL = '/offline.html';
 
-const PRECACHE_URLS = ['/', '/manifest.json', '/offline.html', '/icons/icon-192.png', '/icons/icon-512.png'];
+const PRECACHE_URLS = ['/', '/manifest.json', '/offline.html', '/404.html', '/tokens.css', '/site.css', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

@@ -31,6 +31,28 @@ export interface ModelDefinition {
 
 export const AVAILABLE_MODELS: ModelDefinition[] = [
   {
+    id: 'gemini-3.8-flash',
+    label: 'Gemini 3.8 Flash',
+    description: "Google's latest fast model for coding and agent workflows.",
+    contextWindow: 1048576,
+    defaults: {
+      temperature: 0.7,
+      maxTokens: 2048,
+      topP: 0.9,
+    },
+  },
+  {
+    id: 'gemini-4-argon',
+    label: 'Gemini 4 Argon',
+    description: "Google's advanced reasoning model for complex tasks.",
+    contextWindow: 1048576,
+    defaults: {
+      temperature: 0.7,
+      maxTokens: 2048,
+      topP: 0.9,
+    },
+  },
+  {
     id: 'gemini-2.5-flash',
     label: 'Gemini 2.5 Flash',
     description: "Google's fast multimodal model.",
@@ -51,6 +73,13 @@ export const AVAILABLE_MODELS: ModelDefinition[] = [
       maxTokens: 2048,
       topP: 0.9,
     },
+  },
+  {
+    id: 'nvidia/nemotron-3.5-super-vl-120b-a12b',
+    label: 'NVIDIA Nemotron 3.5 Super VL',
+    description: "NVIDIA's multimodal model for reasoning, coding, and image understanding.",
+    contextWindow: 262144,
+    defaults: { temperature: 1, maxTokens: 4096, topP: 0.95 },
   },
 ];
 

@@ -18,6 +18,8 @@ export function ModelSettings({ values, onChange }: ModelSettingsProps) {
   const bounds = options?.paramBounds;
   const models = options?.models ?? [];
   const presets = options?.systemPromptPresets ?? [];
+  const isHostedModel =
+    values.model.startsWith('gemini-') || values.model.startsWith('nvidia/');
 
   return (
     <div className="flex flex-col gap-5">
@@ -37,7 +39,7 @@ export function ModelSettings({ values, onChange }: ModelSettingsProps) {
             </option>
           ))}
         </select>
-        {options && !options.ollama.pulledModels.some((m) => m === values.model) && (
+        {options && !isHostedModel && !options.ollama.pulledModels.includes(values.model) && (
           <p className="mt-1.5 text-xs text-danger-light dark:text-danger-dark">
             This model doesn't look pulled yet. Run{' '}
             <code className="font-mono">ollama pull {values.model}</code> first.

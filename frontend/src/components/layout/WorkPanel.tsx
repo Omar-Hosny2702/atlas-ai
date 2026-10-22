@@ -1,3 +1,4 @@
+
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 
 interface WorkPanelProps {
@@ -19,11 +20,15 @@ export function WorkPanel({ onBack }: WorkPanelProps) {
           >
             <ArrowLeft size={18} />
           </button>
+
           <div>
-            <h1 className="text-sm font-semibold">Agent</h1>
-            <p className="text-xs text-white/45">OmarAgent workspace</p>
+            <h1 className="text-sm font-semibold">Work</h1>
+            <p className="text-xs text-white/45">
+              OmarAgent workspace
+            </p>
           </div>
         </div>
+
         <a
           href={AGENT_URL}
           target="_blank"

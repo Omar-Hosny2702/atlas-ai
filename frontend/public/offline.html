@@ -3,50 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#050a13" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="robots" content="noindex" />
+    <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/tokens.css" />
+    <link rel="stylesheet" href="/site.css" />
     <title>Atlas AI — Offline</title>
-    <style>
-      body {
-        margin: 0;
-        min-height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: #0e1116;
-        color: #e6e8eb;
-        font-family: Inter, system-ui, -apple-system, sans-serif;
-        text-align: center;
-        padding: 24px;
-      }
-      .card {
-        max-width: 360px;
-      }
-      h1 {
-        font-family: 'Space Grotesk', system-ui, sans-serif;
-        font-size: 22px;
-        margin-bottom: 8px;
-      }
-      p {
-        color: #8b93a0;
-        line-height: 1.5;
-        margin-bottom: 20px;
-      }
-      button {
-        background: #1f8a70;
-        color: white;
-        border: none;
-        border-radius: 8px;
-        padding: 10px 18px;
-        font-size: 14px;
-        font-weight: 600;
-        cursor: pointer;
-      }
-    </style>
   </head>
   <body>
-    <div class="card">
+    <main class="wrap">
+      <div class="orbit" aria-hidden="true"><span class="ring"><i></i></span><svg viewBox="0 0 64 64" role="img" aria-label="Atlas AI"><path d="M9.18 47.42 A24 8 -18 0 1 54.82 32.58" fill="none" stroke="#67e8f9" stroke-width="2.6" stroke-opacity=".38"/><path d="M9 54 L28.2 9 H35.8 L55 54 H46.4 L32 20.4 L17.6 54 Z" fill="currentColor"/><path d="M9.18 47.42 A24 8 -18 0 0 54.82 32.58" fill="none" stroke="#67e8f9" stroke-width="2.6" stroke-linecap="round"/><circle cx="54.82" cy="32.58" r="3.6" fill="#67e8f9"/></svg></div>
       <h1>You're offline</h1>
       <p>Atlas AI can't reach the network right now. Reconnect and try again — your previous conversations will still be here.</p>
-      <button onclick="location.reload()">Retry</button>
-    </div>
+      <div class="row">
+        <button class="btn" type="button" onclick="location.reload()">Retry</button>
+        <a class="btn ghost" href="/">Back to Atlas AI</a>
+      </div>
+      <p class="help">Support &amp; updates: <a href="mailto:atlas@omarhosny.work.gd">atlas@omarhosny.work.gd</a></p>
+    </main>
+    <div class="wordmark" aria-hidden="true">Atlas</div>
+    <script>
+      // Reload automatically as soon as the connection returns.
+      window.addEventListener('online', function () { location.reload(); });
+    </script>
   </body>
 </html>

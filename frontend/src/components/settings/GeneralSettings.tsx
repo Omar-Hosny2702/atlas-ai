@@ -43,7 +43,7 @@ export function GeneralSettings() {
           <p className="mt-2 text-xs text-muted-light dark:text-muted-dark">
             {options.ollama.pulledModels.length > 0
               ? `${options.ollama.pulledModels.length} model(s) pulled locally.`
-              : 'No Gemini models are available. Check your Google AI Studio API key.'}
+              : 'Ollama is running, but no local models are listed.'}
           </p>
         )}
       </div>
@@ -65,8 +65,9 @@ export function GeneralSettings() {
       <div>
         <h3 className="text-sm font-semibold mb-2">About</h3>
         <p className="text-sm text-muted-light dark:text-muted-dark leading-relaxed">
-          Atlas AI runs entirely on your own machine. Conversations are stored locally by the
-          backend, and generation happens through Ollama — no data leaves your network.
+          Atlas AI supports hosted models such as Gemini and NVIDIA, as well as local Ollama
+          models. Messages are sent to the selected model provider, and conversation storage
+          depends on your backend configuration.
         </p>
       </div>
     </div>
