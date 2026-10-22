@@ -1,5 +1,6 @@
 import { forwardRef, type RefObject } from 'react';
 import {
+  BriefcaseBusiness,
   ChevronDown,
   Search,
   Settings,
@@ -20,6 +21,7 @@ interface SidebarProps {
   onSelectConversation: (id: string) => void;
   onOpenSettings: () => void;
   onOpenAdminUsers: () => void;
+  onOpenWork: () => void;
   searchInputRef: RefObject<HTMLInputElement>;
 }
 
@@ -31,6 +33,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
       onSelectConversation,
       onOpenSettings,
       onOpenAdminUsers,
+      onOpenWork,
       searchInputRef,
     },
     ref
@@ -164,6 +167,19 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
               </span>
 
               New chat
+            </button>
+          </div>
+
+          {/* Work */}
+          <div className="px-4 pt-2">
+            <button
+              type="button"
+              onClick={onOpenWork}
+              className="flex h-11 w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-medium text-white/85 transition hover:border-accent-dark/50 hover:bg-white/[0.08] hover:text-white"
+            >
+              <BriefcaseBusiness size={18} />
+              <span>Work</span>
+              <span className="ml-auto text-xs text-white/40">Agent</span>
             </button>
           </div>
 

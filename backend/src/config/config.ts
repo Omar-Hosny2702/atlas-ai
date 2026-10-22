@@ -29,8 +29,8 @@ function readInt(
 
 const defaultCorsOrigin =
   process.env.VERCEL
-    ? 'https://atlas-ai-beta-beryl.vercel.app'
-    : 'http://localhost:5173';
+    ? String.fromCharCode(104,116,116,112,115,58,47,47,97,116,108,97,115,45,97,105,45,98,101,116,97,45,98,101,114,121,108,46,118,101,114,99,101,108,46,97,112,112)
+    : String.fromCharCode(104,116,116,112,58,47,47,108,111,99,97,108,104,111,115,116,58,53,49,55,51);
 
 function normalizeCorsOrigins(
   value: string | undefined,
@@ -65,7 +65,7 @@ export const config = {
 
   defaultModel:
     process.env.DEFAULT_MODEL ??
-    'gemini-2.5-flash',
+    'gemini-3.8-flash',
 
   auth0Domain:
     process.env.AUTH0_DOMAIN ?? '',

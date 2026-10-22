@@ -10,14 +10,11 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-function systemPrefersDark(): boolean {
-  return window.matchMedia('(prefers-color-scheme: dark)').matches;
-}
-
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useLocalStorage<Theme>(
     'atlas-ai-theme',
-    systemPrefersDark() ? 'dark' : 'light'
+    // Atlas is dark-first: with no saved choice the app opens dark. Light stays available in Settings.
+    'dark'
   );
 
   useEffect(() => {
