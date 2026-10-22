@@ -1,3 +1,4 @@
+
 import { useRef, useState } from 'react';
 
 import { Sidebar } from './Sidebar';
@@ -26,6 +27,7 @@ export function MainLayout() {
   ] = useState(false);
 
   const [workOpen, setWorkOpen] = useState(false);
+  const [sidebarVisible, setSidebarVisible] = useState(true);
 
   const searchInputRef =
     useRef<HTMLInputElement>(null);
@@ -86,35 +88,30 @@ export function MainLayout() {
         dark:text-paper
       "
     >
-      <Sidebar
-        isMobileOpen={
-          isMobileSidebarOpen
-        }
-        onCloseMobile={() =>
-          setMobileSidebarOpen(
-            false
-          )
-        }
-        onSelectConversation={
-          handleSelect
-        }
-        onOpenSettings={() =>
-          setSettingsOpen(true)
-        }
-        onOpenAdminUsers={() => {
-          setAdminUsersOpen(true);
-          setWorkOpen(false);
-          setMobileSidebarOpen(false);
-        }}
-        onOpenWork={() => {
-          setWorkOpen(true);
-          setAdminUsersOpen(false);
-          setMobileSidebarOpen(false);
-        }}
-        searchInputRef={
-          searchInputRef
-        }
-      />
+      {sidebarVisible && (
+        <Sidebar
+          isMobileOpen={isMobileSidebarOpen}
+          onCloseMobile={() =>
+            setMobileSidebarOpen(false)
+          }
+          onSelectConversation={handleSelect}
+          onOpenSettings={() =>
+            setSettingsOpen(true)
+          }
+          onOpenAdminUsers={() => {
+            setAdminUsersOpen(true);
+            setWorkOpen(false);
+            setMobileSidebarOpen(false);
+          }}
+          onOpenWork={() => {
+            setWorkOpen(true);
+            setSidebarVisible(false);
+            setAdminUsersOpen(false);
+            setMobileSidebarOpen(false);
+          }}
+          searchInputRef={searchInputRef}
+        />
+      )}
 
       <main
         className="
@@ -125,6 +122,18 @@ export function MainLayout() {
           overflow-hidden
         "
       >
+        {!sidebarVisible && (
+          <button
+            type="button"
+            onClick={() => setSidebarVisible(true)}
+            aria-label="Show sidebar"
+            title="Show sidebar"
+            className="absolute left-3 top-3 z-30 rounded-lg border border-white/15 bg-[#090b10] p-2 text-white/80 shadow-lg transition hover:bg-white/10 hover:text-white"
+          >
+            ☰
+          </button>
+        )}
+
         {adminUsersOpen ? (
           <UsersPage
             onBack={() =>
@@ -132,16 +141,14 @@ export function MainLayout() {
             }
           />
         ) : workOpen ? (
-          <WorkPanel onBack={() => setWorkOpen(false)} />
+          <WorkPanel
+            onBack={() => setWorkOpen(false)}
+          />
         ) : (
           <ChatWindow
-            conversationId={
-              activeId
-            }
+            conversationId={activeId}
             onOpenSidebar={() =>
-              setMobileSidebarOpen(
-                true
-              )
+              setMobileSidebarOpen(true)
             }
           />
         )}
