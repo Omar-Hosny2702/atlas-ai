@@ -8,6 +8,7 @@ export interface UserPreferences {
   personality: string;
   languageStyle: string;
   useEmojis: boolean;
+  automaticMemoryEnabled: boolean;
   customInstructions: string;
   updatedAt: string;
 }
@@ -36,6 +37,7 @@ export function updatePreferences(
     personality: string;
     languageStyle: string;
     useEmojis: boolean;
+    automaticMemoryEnabled: boolean;
     customInstructions: string;
   }>
 ): Promise<UserPreferences> {

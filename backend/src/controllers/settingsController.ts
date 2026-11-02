@@ -32,6 +32,7 @@ export const updatePreferencesSchema = z.object({
   personality: z.string().max(50).optional(),
   languageStyle: z.string().max(50).optional(),
   useEmojis: z.boolean().optional(),
+  automaticMemoryEnabled: z.boolean().optional(),
   customInstructions: z.string().max(4000).optional(),
 });
 
