@@ -1,10 +1,8 @@
 import assert from 'node:assert/strict';
+import { runAutomaticMemoryExtraction } from '../src/services/automaticMemoryService.ts';
 import crypto from 'node:crypto';
 import { createServer } from 'node:http';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import 'dotenv/config';
 
 let authServer: ReturnType<typeof createServer> | null = null;
 let appServer: ReturnType<typeof createServer> | null = null;
@@ -73,13 +71,48 @@ async function startMockAuth0(): Promise<void> {
 }
 
 async function startApp(): Promise<void> {
-  const dbName = `test-${Date.now()}-${Math.random().toString(16).slice(2)}.db`;
+  const testDatabaseUrl = process.env.TEST_DATABASE_URL;
+  const normalDatabaseUrl = process.env.DATABASE_URL;
+
+  if (!testDatabaseUrl) {
+    throw new Error(
+      'TEST_DATABASE_URL is required. Refusing to run tests against the normal database.'
+    );
+  }
+
+  if (!normalDatabaseUrl) {
+    throw new Error('DATABASE_URL must be configured so the test can verify isolation.');
+  }
+
+  const testTarget = new URL(testDatabaseUrl);
+  const normalTarget = new URL(normalDatabaseUrl);
+
+  if (!['localhost', '127.0.0.1', '::1'].includes(testTarget.hostname)) {
+    throw new Error(
+      'TEST_DATABASE_URL must point to local PostgreSQL. Refusing remote test databases.'
+    );
+  }
+
+  if (
+    testTarget.hostname === normalTarget.hostname &&
+    testTarget.port === normalTarget.port &&
+    testTarget.pathname === normalTarget.pathname
+  ) {
+    throw new Error(
+      'TEST_DATABASE_URL points to the normal database. Refusing to run tests.'
+    );
+  }
+
+  process.env.DATABASE_URL = testDatabaseUrl;
   process.env.NODE_ENV = 'test';
   process.env.AUTH0_DISABLED = 'false';
   process.env.AUTH0_DOMAIN = `http://127.0.0.1:${authPort}`;
   process.env.AUTH0_AUDIENCE = 'atlas-ai-api';
   process.env.AUTH0_ISSUER = `http://127.0.0.1:${authPort}/`;
-  process.env.DATABASE_PATH = path.resolve(__dirname, `../data/${dbName}`);
+
+  const { getDatabase } = await import('../src/db/database.ts');
+  const testSql = await getDatabase();
+  await testSql.unsafe('TRUNCATE TABLE conversations CASCADE');
 
   const { app } = await import('../src/server.ts');
   appServer = createServer(app);
@@ -112,7 +145,44 @@ async function closeApp(): Promise<void> {
   closeDatabase();
 }
 
+async function verifyAutomaticMemoryGate(): Promise<void> {
+  let extractionCalls = 0;
+  let saveCalls = 0;
+
+  await runAutomaticMemoryExtraction(
+    false,
+    async () => {
+      extractionCalls += 1;
+      return ['should not be extracted'];
+    },
+    async () => {
+      saveCalls += 1;
+    }
+  );
+
+  assert.equal(extractionCalls, 0, 'Disabled automatic memory must not call extraction.');
+  assert.equal(saveCalls, 0, 'Disabled automatic memory must not save extracted memories.');
+
+  await runAutomaticMemoryExtraction(
+    true,
+    async () => {
+      extractionCalls += 1;
+      return ['A test preference'];
+    },
+    async (memories) => {
+      saveCalls += 1;
+      assert.deepEqual(memories, ['A test preference']);
+    }
+  );
+
+  assert.equal(extractionCalls, 1, 'Enabled automatic memory should call extraction once.');
+  assert.equal(saveCalls, 1, 'Enabled automatic memory should save once.');
+
+  console.log('PASS: automatic-memory opt-out regression');
+}
+
 async function main(): Promise<void> {
+  await verifyAutomaticMemoryGate();
   await startMockAuth0();
   await startApp();
 
@@ -129,6 +199,34 @@ async function main(): Promise<void> {
 
     const tokenA = signJwt('auth0|user-a');
     const tokenB = signJwt('auth0|user-b');
+
+    const initialPreferences = await fetchJson(`${baseUrl}/api/settings/preferences`, {
+      headers: { Authorization: `Bearer ${tokenA}` },
+    });
+    assert.equal(initialPreferences.status, 200);
+    assert.equal(initialPreferences.body.automaticMemoryEnabled, false);
+
+    const enableAutomaticMemory = await fetchJson(`${baseUrl}/api/settings/preferences`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${tokenA}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ automaticMemoryEnabled: true }),
+    });
+    assert.equal(enableAutomaticMemory.status, 200);
+    assert.equal(enableAutomaticMemory.body.automaticMemoryEnabled, true);
+
+    const disableAutomaticMemory = await fetchJson(`${baseUrl}/api/settings/preferences`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${tokenA}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ automaticMemoryEnabled: false }),
+    });
+    assert.equal(disableAutomaticMemory.status, 200);
+    assert.equal(disableAutomaticMemory.body.automaticMemoryEnabled, false);
 
     const createA = await fetchJson(`${baseUrl}/api/conversations`, {
       method: 'POST',

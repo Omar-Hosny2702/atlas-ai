@@ -44,6 +44,7 @@ export function PersonalisationSettings() {
         personality: next.personality,
         languageStyle: next.languageStyle,
         useEmojis: next.useEmojis,
+        automaticMemoryEnabled: next.automaticMemoryEnabled,
         customInstructions: next.customInstructions,
       });
 
@@ -161,6 +162,23 @@ export function PersonalisationSettings() {
           checked={preferences.useEmojis}
           onChange={(e) =>
             void saveChanges({ useEmojis: e.target.checked })
+          }
+          className="h-4 w-4"
+        />
+      </div>
+
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium">Automatic memory</p>
+          <p className="text-xs text-muted-light dark:text-muted-dark">
+            When enabled, Atlas sends message content to Google separately to extract useful details for future chats. When disabled, this automatic memory-extraction request is not made. Your messages may still be sent to the provider for the AI model you select.
+          </p>
+        </div>
+        <input
+          type="checkbox"
+          checked={preferences.automaticMemoryEnabled}
+          onChange={(e) =>
+            void saveChanges({ automaticMemoryEnabled: e.target.checked })
           }
           className="h-4 w-4"
         />

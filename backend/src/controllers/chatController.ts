@@ -55,6 +55,10 @@ import {
 } from '../services/preferenceService.js';
 
 import {
+  runAutomaticMemoryExtraction,
+} from '../services/automaticMemoryService.js';
+
+import {
   getDatabase,
 } from '../db/database.js';
 
@@ -1106,17 +1110,13 @@ export async function sendMessage(
     /\b(remember|my favourite|my favorite|i prefer|i like|i love|i hate|i use|i am|i'm|my project|from now on)\b/i
       .test(content);
 
-  if (
-    memoryWorthChecking
-  ) {
-    const extractedMemories =
-      await extractMemoriesFromMessage(
-        content
-      );
+  if (memoryWorthChecking) {
+    const preferences = await getPreferences(userId);
 
-    await saveUsefulMemories(
-      userId,
-      extractedMemories
+    await runAutomaticMemoryExtraction(
+      preferences.automaticMemoryEnabled,
+      () => extractMemoriesFromMessage(content),
+      (memories) => saveUsefulMemories(userId, memories)
     );
   }
 

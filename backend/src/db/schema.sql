@@ -147,6 +147,9 @@ CREATE TABLE IF NOT EXISTS user_preferences (
   use_emojis BOOLEAN NOT NULL
     DEFAULT TRUE,
 
+  automatic_memory_enabled BOOLEAN NOT NULL
+    DEFAULT FALSE,
+
   custom_instructions TEXT NOT NULL
     DEFAULT '',
 
@@ -195,3 +198,6 @@ CREATE INDEX IF NOT EXISTS idx_attachments_status
 
 CREATE INDEX IF NOT EXISTS idx_memories_user_id
   ON memories(user_id);
+
+ALTER TABLE user_preferences
+  ADD COLUMN IF NOT EXISTS automatic_memory_enabled BOOLEAN NOT NULL DEFAULT FALSE;

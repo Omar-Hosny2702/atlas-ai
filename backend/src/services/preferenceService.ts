@@ -7,6 +7,7 @@ export interface UserPreferences {
   personality: string;
   languageStyle: string;
   useEmojis: boolean;
+  automaticMemoryEnabled: boolean;
   customInstructions: string;
   updatedAt: string;
 }
@@ -18,6 +19,7 @@ interface PreferenceRow {
   personality: string;
   language_style: string;
   use_emojis: boolean;
+  automatic_memory_enabled: boolean;
   custom_instructions: string;
   updated_at: string;
 }
@@ -30,6 +32,7 @@ function rowToPreferences(row: PreferenceRow): UserPreferences {
     personality: row.personality,
     languageStyle: row.language_style,
     useEmojis: Boolean(row.use_emojis),
+    automaticMemoryEnabled: Boolean(row.automatic_memory_enabled),
     customInstructions: row.custom_instructions,
     updatedAt: row.updated_at,
   };
@@ -61,6 +64,7 @@ export async function getPreferences(
       personality,
       language_style,
       use_emojis,
+      automatic_memory_enabled,
       custom_instructions,
       updated_at
     )
@@ -71,6 +75,7 @@ export async function getPreferences(
       'default',
       'british',
       TRUE,
+      FALSE,
       '',
       ${now}
     )
@@ -88,6 +93,7 @@ export async function updatePreferences(
     personality: string;
     languageStyle: string;
     useEmojis: boolean;
+    automaticMemoryEnabled: boolean;
     customInstructions: string;
   }>
 ): Promise<UserPreferences> {
@@ -102,6 +108,7 @@ export async function updatePreferences(
       personality = ${updates.personality ?? current.personality},
       language_style = ${updates.languageStyle ?? current.languageStyle},
       use_emojis = ${updates.useEmojis ?? current.useEmojis},
+      automatic_memory_enabled = ${updates.automaticMemoryEnabled ?? current.automaticMemoryEnabled},
       custom_instructions = ${updates.customInstructions ?? current.customInstructions},
       updated_at = ${new Date().toISOString()}
     WHERE user_id = ${userId}
